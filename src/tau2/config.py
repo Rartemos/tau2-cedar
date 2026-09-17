@@ -163,6 +163,7 @@ DEFAULT_GEMINI_PROACTIVE_AUDIO = True  # fixed
 DEFAULT_GEMINI_LOCATION = "us-central1"  # fixed
 DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 8000  # fixed, API-defined
 DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
+DEFAULT_GEMINI_TRANSCRIPTION_LANGUAGE_CODES = ["en-US"]  # overridable
 
 # =============================================================================
 # XAI PROVIDER (overridable model/voice, fixed API constants)

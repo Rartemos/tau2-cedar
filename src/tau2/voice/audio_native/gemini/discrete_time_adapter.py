@@ -126,9 +126,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
         """
         super().__init__(tick_duration_ms, send_audio_instant=send_audio_instant)
 
-        self.input_sample_rate = (
-            input_sample_rate or DEFAULT_GEMINI_INPUT_SAMPLE_RATE
-        )
+        self.input_sample_rate = input_sample_rate or DEFAULT_GEMINI_INPUT_SAMPLE_RATE
 
         self._chunk_size = int(
             self.input_sample_rate * 2 * self._voip_interval_ms / 1000
