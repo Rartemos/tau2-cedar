@@ -228,6 +228,24 @@ wheels = [
 ]
 
 [[package]]
+name = "cedarpy"
+version = "4.8.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/62/76f3989c8f36e8c112d3e12236aeb2bacb5e35d70f471e219e0020f1d623/cedarpy-4.8.5.tar.gz", hash = "sha256:29caffc957030b515f4c6e7caebd9bb870877c08d8cabc82a9d0664aeaa14761", size = 385820, upload-time = "2026-06-21T23:15:29.623Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/17/32e6cb11ecc9c2ef1ff0da78d8e5f4fda4c164c3056a249008fb9adb5969/cedarpy-4.8.5-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:55fbd7364b26d5345f35c3deed521909f86dde58f9f8d2eb32e27d94e5ee8bcc", size = 4095715, upload-time = "2026-06-21T23:15:24.603Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/d1/7a78097f94a7b3b597e9ff4212f4066de8a490b8f758ffa52260e5514877/cedarpy-4.8.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:273324d2f359b9598c08919d38f605083c23ffec0581aa17ad8c8c712767b47a", size = 3986332, upload-time = "2026-06-21T23:15:16.102Z" },
+    { url = "https://files.pythonhosted.org/packages/47/fc/2a1849c5c9afd5f80d05e81286c52181f32e33abb6ec9a8ef66902169105/cedarpy-4.8.5-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e3a3369cfa2277efee76e3e82008cec1863168878020166c0cfbb35b84a42875", size = 4417358, upload-time = "2026-06-21T23:14:46.89Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/f0/fe0a52ade2a509116bfab3114c347fb7d79ba20b3c98d15b31a596034138/cedarpy-4.8.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:64c87e34e88d3df3ce6f252f35d38133e3b0948b27f4e785298b7c6dd019b14d", size = 4504833, upload-time = "2026-06-21T23:15:02.916Z" },
+    { url = "https://files.pythonhosted.org/packages/19/06/251299a547c570f964cb872049ce2e2e077bebe9094fbb8ff1a7e5c35f01/cedarpy-4.8.5-cp312-cp312-win_amd64.whl", hash = "sha256:75b4a39396608140f04aea5678867b714b8581a953ab27777ed46fb9fca09ad3", size = 3888101, upload-time = "2026-06-21T23:15:34.987Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/bc/15e6335efa2d9a778a076fda7bfe08caa0a1878bfa088842289ffec8d0a7/cedarpy-4.8.5-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:6a6bb2ec814e48ecb6a0213b09ac6c85a98c648d6f50e93a8a266f0f01989973", size = 4096132, upload-time = "2026-06-21T23:15:26.266Z" },
+    { url = "https://files.pythonhosted.org/packages/00/c6/2b3525afba063a170ec0e0b388aa90574dc4d34e19c53f35072015a0ca34/cedarpy-4.8.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:1ef109409cc5bb4ad2139cb43723f0586b2fc5ea2588dd29ac84954d5ef76248", size = 3985319, upload-time = "2026-06-21T23:15:17.854Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/08/21f80c911b7709535bbce1d74ac6dcc2e85f77878cc6fe50fb5de38ba76a/cedarpy-4.8.5-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9e3012c030ec8651f45a37ef625f15e0781d16d6e7936a49e18f3d3a2dcbda89", size = 4417756, upload-time = "2026-06-21T23:14:48.68Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/55/72112a5e0adf95b2fbaace9beba80a64685927ba3b084a9354466eab64ed/cedarpy-4.8.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:85043d1c5b2950a379353979229668225e655bf739b7ee85e8fe27299d9122e5", size = 4504096, upload-time = "2026-06-21T23:15:04.717Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/4e/da7401f08f7df52f4403e63fa613bce3d5b1565aee891668d9f36dd20707/cedarpy-4.8.5-cp313-cp313-win_amd64.whl", hash = "sha256:279a9404e2e321e3d258c97ea0af41a4832c399e6cce9b389aa2076c7d3b9145", size = 3887979, upload-time = "2026-06-21T23:15:36.741Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2025.11.12"
 source = { registry = "https://pypi.org/simple" }
@@ -2745,6 +2763,7 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "addict" },
+    { name = "cedarpy" },
     { name = "deepdiff" },
     { name = "docstring-parser" },
     { name = "fastapi" },
@@ -2841,6 +2860,7 @@ requires-dist = [
     { name = "aiohttp", marker = "extra == 'voice'", specifier = ">=3.0" },
     { name = "aws-sdk-bedrock-runtime", marker = "extra == 'voice'", specifier = ">=0.3.0" },
     { name = "boto3", marker = "extra == 'voice'", specifier = ">=1.35.0" },
+    { name = "cedarpy", specifier = ">=4.8.5" },
     { name = "deepdiff", specifier = ">=8.4.2" },
     { name = "deepgram-sdk", marker = "extra == 'voice'", specifier = ">=3.7.3" },
     { name = "docstring-parser", specifier = ">=0.16" },

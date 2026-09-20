@@ -1,6 +1,7 @@
 import json
 from copy import deepcopy
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Literal, Optional
 
 from loguru import logger
@@ -17,6 +18,8 @@ from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall, InitializationD
 from tau2.environment.db import DB
 from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolSignature, get_tool_signatures
+from tau2.environment.cedar_authorization import CedarAuthorizer, CedarError
+from tau2.environment.tool_logger import ToolLogger
 
 
 class EnvironmentInfo(BaseModel):
@@ -42,7 +45,9 @@ class Environment:
         policy: str,
         tools: Optional[ToolKitBase] = None,
         user_tools: Optional[ToolKitBase] = None,
+        authorizer: Optional[CedarAuthorizer] = None,
         solo_mode: bool = False,
+        save_dir: Optional[str] = None,
     ):
         """
         Environment
@@ -51,6 +56,7 @@ class Environment:
             policy: The policy of the domain.
             tools: The tools available to the assistant in the domain.
             user_tools: The tools available to the user in the domain.
+            authorizer: The Cedar authorizer for intercepting and authorizing tool calls.
             solo_mode: The agent will have access to both user and assistant tools.
         """
         self.domain_name = domain_name
@@ -61,6 +67,15 @@ class Environment:
         if self.solo_mode:
             self.validate_solo_mode()
         self.sync_tools()
+
+        self.cedar_authorizer = authorizer or CedarAuthorizer(
+            domain_name=self.domain_name, 
+            db=tools.db if tools is not None else None,
+        )
+        
+        target_folder = save_dir or "default_simulation"
+        log_dir = Path("data/simulations") / target_folder 
+        self.tool_logger = ToolLogger(log_dir / "tool_calls.jsonl")
 
     def get_domain_name(self) -> str:
         """
@@ -139,21 +154,151 @@ class Environment:
                 return toolkit.tool_mutates_state(tool_name)
         return True  # safe fallback: assume mutation
 
-    def use_tool(self, tool_name: str, **kwargs) -> Any:
+    def use_tool(self, tool_name: str, requestor: str, task_id: str = "0", **kwargs) -> Any:
+        """Use a tool available to the assistant of the domain.
+        
+        If the tool call is denied by Cedar, returns a structured denial dict:
+            {"status": "cedar_denied", "tool": str, "policy_feedback": str}
+        
+        Args:
+            tool_name (str): The name of the tool.
+            requestor (str): The identity of the caller.
+            task_id (str, optional): The ID of the active task. Defaults to "0".
+            **kwargs: Arguments forwarded to the tool.
+            
+        Returns:
+            Any: The tool result on success, or a Cedar denial dict if blocked.
+            
+        Raises:
+            ValueError: If the tools toolkit is not initialized.
         """
-        Use a tool available to the assistant of the domain.
-        """
+        try:
+            cedar_auth_data = self.cedar_authorizer.authorize_tool_call(
+                tool_name=tool_name, 
+                arguments=kwargs, 
+                requestor=requestor
+            )
+        except CedarError as e:
+            logger.warning(
+                f"Cedar denied '{tool_name}' for requestor '{requestor}': {e.reason}"
+            )
+            self.tool_logger.log_cedar_denied(
+                task_id=task_id,
+                tool_name=e.tool_name,
+                requestor=e.requestor,
+                reason=e.reason,
+                cedar_request=e.cedar_request,
+                cedar_policy_ids=e.cedar_policy_ids, 
+                cedar_eval_errors=e.cedar_eval_errors,
+                cedar_overhead_ms=e.cedar_overhead_ms,
+            )
+            return {
+                "status": "cedar_denied",
+                "tool": e.tool_name,
+                "policy_feedback": e.reason,
+            }
+
         if self.tools is None:
             raise ValueError("Tools not available")
-        return self.tools.use_tool(tool_name=tool_name, **kwargs)
+        
+        try:
+            result = self.tools.use_tool(tool_name=tool_name, **kwargs)
+            self.tool_logger.log_success(
+                task_id=task_id,
+                tool_name=tool_name,
+                requestor=requestor,
+                arguments=kwargs,
+                cedar_request=cedar_auth_data.get("cedar_request"),
+                cedar_policy_ids=cedar_auth_data.get("cedar_policy_ids"),
+                cedar_eval_errors=cedar_auth_data.get("cedar_eval_errors"),
+                cedar_overhead_ms=cedar_auth_data.get("cedar_overhead_ms"),
+            )
+            return result
+        except Exception as e:
+            self.tool_logger.log_error(
+                task_id=task_id,
+                tool_name=tool_name,
+                requestor=requestor,
+                error=e,
+                cedar_request=cedar_auth_data.get("cedar_request"),
+                cedar_policy_ids=cedar_auth_data.get("cedar_policy_ids"),
+                cedar_eval_errors=cedar_auth_data.get("cedar_eval_errors"),
+                cedar_overhead_ms=cedar_auth_data.get("cedar_overhead_ms"),
+            )
+            raise
 
-    def use_user_tool(self, tool_name: str, **kwargs) -> Any:
+    def use_user_tool(self, tool_name: str, requestor: str, task_id: str = "0", **kwargs) -> Any:
+        """Use a tool available to the user of the domain.
+        
+        If the tool call is denied by Cedar, returns a structured denial dict:
+            {"status": "cedar_denied", "tool": str, "policy_feedback": str}
+        
+        Args:
+            tool_name (str): The name of the tool.
+            requestor (str): The identity of the caller.
+            task_id (str, optional): The ID of the active task. Defaults to "0".
+            **kwargs: Arguments forwarded to the tool.
+            
+        Returns:
+            Any: The tool result on success, or a Cedar denial dict if blocked.
+            
+        Raises:
+            ValueError: If the user_tools toolkit is not initialized.
         """
-        Use a tool available to the user of the domain.
-        """
+        try:
+            cedar_auth_data = self.cedar_authorizer.authorize_tool_call(
+                tool_name=tool_name, 
+                arguments=kwargs, 
+                requestor=requestor
+            )
+        except CedarError as e:
+            logger.warning(
+                f"Cedar denied '{tool_name}' for requestor '{requestor}': {e.reason}"
+            )
+            self.tool_logger.log_cedar_denied(
+                task_id=task_id,
+                tool_name=e.tool_name,
+                requestor=e.requestor,
+                reason=e.reason,
+                cedar_request=e.cedar_request,
+                cedar_policy_ids=e.cedar_policy_ids, 
+                cedar_eval_errors=e.cedar_eval_errors,
+                cedar_overhead_ms=e.cedar_overhead_ms,
+            )
+            return {
+                "status": "cedar_denied",
+                "tool": e.tool_name,
+                "policy_feedback": e.reason,
+            }
+
         if self.user_tools is None:
             raise ValueError("User tools not available")
-        return self.user_tools.use_tool(tool_name=tool_name, **kwargs)
+        
+        try:
+            result = self.user_tools.use_tool(tool_name=tool_name, **kwargs)
+            self.tool_logger.log_success(
+                task_id=task_id,
+                tool_name=tool_name,
+                requestor=requestor,
+                arguments=kwargs,
+                cedar_request=cedar_auth_data.get("cedar_request"),
+                cedar_policy_ids=cedar_auth_data.get("cedar_policy_ids"),
+                cedar_eval_errors=cedar_auth_data.get("cedar_eval_errors"),
+                cedar_overhead_ms=cedar_auth_data.get("cedar_overhead_ms"),
+            )
+            return result
+        except Exception as e:
+            self.tool_logger.log_error(
+                task_id=task_id,
+                tool_name=tool_name,
+                requestor=requestor,
+                error=e,
+                cedar_request=cedar_auth_data.get("cedar_request"),
+                cedar_policy_ids=cedar_auth_data.get("cedar_policy_ids"),
+                cedar_eval_errors=cedar_auth_data.get("cedar_eval_errors"),
+                cedar_overhead_ms=cedar_auth_data.get("cedar_overhead_ms"),
+            )
+            raise
 
     def make_tool_call(
         self,
@@ -175,12 +320,12 @@ class Environment:
         if requestor == "user":
             if self.solo_mode:
                 raise ValueError("User tool calls are not allowed in solo mode")
-            return self.use_user_tool(tool_name=tool_name, **kwargs)
+            return self.use_user_tool(tool_name=tool_name, requestor=requestor, **kwargs)
         elif requestor == "assistant":
             if self.solo_mode and self.user_tools is not None:
                 if self.user_tools.has_tool(tool_name):
-                    return self.use_user_tool(tool_name=tool_name, **kwargs)
-            return self.use_tool(tool_name=tool_name, **kwargs)
+                    return self.use_user_tool(tool_name=tool_name, requestor=requestor, **kwargs)
+            return self.use_tool(tool_name=tool_name, requestor=requestor, **kwargs)
         else:
             raise ValueError(f"Invalid requestor: {requestor}")
 
@@ -452,16 +597,20 @@ class Environment:
             The response of the tool call.
         """
         error = False
+
         try:
             resp = self.make_tool_call(
                 message.name, requestor=message.requestor, **message.arguments
             )
             self.sync_tools()
+
         except Exception as e:
             resp = f"Error: {e}"
             error = True
+
         logger.debug(f"Response: {resp}")
         resp = self.to_json_str(resp)
+
         return ToolMessage(
             id=message.id,
             content=resp,

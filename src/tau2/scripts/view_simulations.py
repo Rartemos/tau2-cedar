@@ -765,10 +765,11 @@ def handle_post_simulation_action(
     ConsoleDisplay.console.print("1. Skip (do nothing)")
     ConsoleDisplay.console.print("2. Add notes")
     ConsoleDisplay.console.print("3. Create task issue")
+    ConsoleDisplay.console.print("4. View tool call log")
 
     choice = Prompt.ask(
         "\nWhat would you like to do?",
-        choices=["1", "2", "3"],
+        choices=["1", "2", "3", "4"],
         default="1",
     )
 
@@ -819,6 +820,29 @@ def handle_post_simulation_action(
             if issue.simulation_file:
                 ConsoleDisplay.console.print(f"  Simulation: {issue.simulation_file}")
 
+    elif choice == "4":
+        log_path = Path(results_file).parent / "tool_events.jsonl"
+        
+        if not log_path.exists():
+            ConsoleDisplay.console.print("[yellow]No tool call log found for this simulation.[/]")
+            return
+        
+        ConsoleDisplay.console.print(f"\n[bold blue]Tool Call Log:[/] {log_path}\n")
+        
+        with open(log_path, encoding="utf-8") as f:
+            for line in f:
+                event = json.loads(line)
+                status_color = {
+                    "success": "green",
+                    "cedar_denied": "red",
+                    "error": "yellow"
+                }.get(event["status"], "white")
+                ConsoleDisplay.console.print(
+                    f"  [{status_color}]{event['status'].upper():15}[/]  "
+                    f"[cyan]{event['tool']:30}[/]  "
+                    f"task={event['task_id']}  "
+                    f"{event.get('reason', event.get('error', ''))}"
+                )
 
 def main(
     sim_file: Optional[str] = None,

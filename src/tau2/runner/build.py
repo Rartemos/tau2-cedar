@@ -32,6 +32,7 @@ from tau2.user.user_simulator_base import FullDuplexUser, HalfDuplexUser
 from tau2.user_simulation_voice_presets import (
     get_or_load_task_voice_config,
 )
+from tau2.runner.helpers import make_run_name
 
 # =============================================================================
 # Low-level build functions (no RunConfig needed)
@@ -314,6 +315,10 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     the task reference needed for golden_retrieval policy.
     """
     env_kwargs: dict = {}
+    
+    run_name = getattr(config, "save_to", None) or make_run_name(config)
+    env_kwargs["save_dir"] = run_name
+    
     retrieval_config = getattr(config, "retrieval_config", None)
     if retrieval_config is not None:
         env_kwargs["retrieval_variant"] = retrieval_config

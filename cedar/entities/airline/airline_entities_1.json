@@ -1,0 +1,201 @@
+[
+  {
+    "uid": { "type": "Agent", "id": "assistant" },
+    "attrs": {
+      "cannot_handle": false
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "SI5UKW" },
+    "attrs": {
+      "cabin": "basic_economy",
+      "insurance": "no",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "change_of_plan",
+      "passenger_count": 1,
+      "total_baggages": 0,
+      "amount": 300,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "XEHM4B" },
+    "attrs": {
+      "cabin": "business",
+      "insurance": "no",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "change_of_plan",
+      "passenger_count": 2,
+      "total_baggages": 0,
+      "amount": 0,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "Z7GOZK" },
+    "attrs": {
+      "cabin": "basic_economy",
+      "insurance": "yes",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "health",
+      "passenger_count": 1,
+      "total_baggages": 0,
+      "amount": 0,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "FLOWN01" },
+    "attrs": {
+      "cabin": "business",
+      "insurance": "yes",
+      "airline_cancelled": false,
+      "booked_within_24hrs": true,
+      "any_flight_already_flown": true,
+      "cancellation_reason": "change_of_plan",
+      "passenger_count": 1,
+      "total_baggages": 0,
+      "amount": 0,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "HAT045" },
+    "attrs": {
+      "cabin": "economy",
+      "insurance": "no",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "none",
+      "passenger_count": 1,
+      "total_baggages": 0,
+      "amount": 50,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "ETHAN01" },
+    "attrs": {
+      "cabin": "economy",
+      "insurance": "no",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "none",
+      "passenger_count": 3,
+      "total_baggages": 0,
+      "amount": 150,
+      "user_modified_or_cancelled": true,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "IFOYYZ" },
+    "attrs": {
+      "cabin": "basic_economy",
+      "insurance": "no",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "none",
+      "passenger_count": 1,
+      "total_baggages": 0,
+      "amount": 0,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  },
+  {
+    "uid": { "type": "Reservation", "id": "NEWBOOK" },
+    "attrs": {
+      "cabin": "economy",
+      "insurance": "no",
+      "airline_cancelled": false,
+      "booked_within_24hrs": false,
+      "any_flight_already_flown": false,
+      "cancellation_reason": "none",
+      "passenger_count": 6,
+      "total_baggages": 0,
+      "amount": 0,
+      "user_modified_or_cancelled": false,
+      "origin_changed": false,
+      "destination_changed": false,
+      "payment_not_in_profile": false,
+      "new_baggage_count": 0,
+      "cabin_mismatch": false,
+      "certificate_count": 0,
+      "credit_card_count": 1,
+      "gift_card_count": 0
+    },
+    "parents": []
+  }
+]
