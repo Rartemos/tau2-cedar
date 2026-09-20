@@ -25,6 +25,7 @@ from tau2.config import (
     DEFAULT_LLM_AGENT,
     DEFAULT_LLM_ARGS_AGENT,
     DEFAULT_LLM_ARGS_USER,
+    DEFAULT_LLM_EVAL_USER_SIMULATOR,
     DEFAULT_LLM_USER,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MAX_CONCURRENCY,
@@ -52,11 +53,13 @@ from tau2.data_model.audio_effects import EffectTimeline
 from tau2.data_model.message import Message, Tick
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.tasks import Action, EnvAssertion, RewardType, Task
+from tau2.data_model.usage import SessionUsage
 from tau2.data_model.voice import SpeechComplexity, SpeechEnvironment, VoiceSettings
 from tau2.environment.environment import EnvironmentInfo
 from tau2.environment.toolkit import ToolType
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.utils import get_now
+from tau2.voice.audio_native.openai.live_config import LiveConfig
 
 SIMULATIONS_DIR = "simulations"
 
@@ -69,9 +72,11 @@ class AudioNativeConfig(BaseModel):
     """
 
     # Provider selection
-    provider: Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"] = Field(
+    provider: Literal[
+        "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit"
+    ] = Field(
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
+        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
     )
 
     # Cascaded config (for livekit provider)
@@ -88,6 +93,30 @@ class AudioNativeConfig(BaseModel):
         default=None,
         description="Reasoning effort for thinking models: 'minimal', 'low', 'medium', 'high'. If None, not sent.",
     )
+    live_config: Optional[LiveConfig] = Field(
+        default=None,
+        description="Backend model, voice, and optional prompt overrides for the openai_live provider",
+    )
+    realtime_generation: Optional[bool] = Field(
+        default=None,
+        description="Whether user LLM and TTS generation run without blocking audio ticks. "
+        "Defaults to enabled for openai_live and disabled for other providers.",
+    )
+
+    @property
+    def realtime_generation_enabled(self) -> bool:
+        """Resolve the provider-aware default for real-time user generation."""
+        if self.realtime_generation is not None:
+            return self.realtime_generation
+        return self.provider == "openai_live"
+
+    @model_validator(mode="after")
+    def validate_live_config(self):
+        if (self.provider == "openai_live") != (self.live_config is not None):
+            raise ValueError(
+                "live_config is required for openai_live and only valid for that provider"
+            )
+        return self
 
     # Timing configuration
     tick_duration_seconds: float = Field(
@@ -359,6 +388,25 @@ class BaseRunConfig(BaseModel):
             default=DEFAULT_MAX_CONCURRENCY,
         ),
     ]
+    workers: Annotated[
+        int,
+        Field(
+            description="Number of worker processes to spawn. 0 (default) runs "
+            "simulations in this process; N > 0 makes this process a controller "
+            "that schedules and checkpoints while N workers execute, each "
+            "holding up to max_concurrency simulations in flight.",
+            default=0,
+        ),
+    ]
+    provider_limits: Annotated[
+        Optional[dict[str, int]],
+        Field(
+            description="Max concurrently-running simulations per provider, "
+            "enforced at lease time in controller mode (workers > 0), "
+            'e.g. {"openai": 40, "gemini": 20}.',
+            default=None,
+        ),
+    ]
     seed: Annotated[
         Optional[int],
         Field(
@@ -417,6 +465,13 @@ class BaseRunConfig(BaseModel):
         Field(
             description="Review mode when auto_review is enabled: 'full' (agent+user errors, default) or 'user' (user simulator only).",
             default="full",
+        ),
+    ]
+    review_model: Annotated[
+        str,
+        Field(
+            description="LLM model for conversation review and hallucination checks.",
+            default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
         ),
     ]
     hallucination_retries: Annotated[
@@ -1257,6 +1312,11 @@ class SimulationRun(BaseModel):
     )
     user_cost: Optional[float] = Field(
         description="The cost of the user.", default=None
+    )
+    agent_usage: Optional[SessionUsage] = Field(
+        description="Aggregated provider usage (and cost breakdown) for the "
+        "agent side. Populated for audio-native full-duplex runs.",
+        default=None,
     )
     reward_info: Optional[RewardInfo] = Field(
         description="The reward received by the agent.", default=None

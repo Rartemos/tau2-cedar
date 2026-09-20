@@ -10,10 +10,17 @@ This test suite verifies that the voice streaming user simulator works correctly
 - Time counters
 """
 
+from threading import Event
+
 import pytest
 
 from tau2.data_model.audio import AudioEncoding, AudioFormat
-from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.data_model.message import (
+    AssistantMessage,
+    ToolCall,
+    TurnTakingAction,
+    UserMessage,
+)
 from tau2.data_model.voice import SynthesisConfig, VoiceSettings
 from tau2.user.user_simulator_streaming import VoiceStreamingUserSimulator
 
@@ -208,6 +215,55 @@ def test_voice_streaming_user_chunk_accumulation(
 
     assert response_1 is not None
     assert len(state.input_turn_taking_buffer) >= 2
+
+
+def test_audio_ticks_continue_while_caller_generation_is_pending(
+    user_instructions, voice_settings, monkeypatch
+):
+    user = VoiceStreamingUserSimulator(
+        llm="gpt-4.1-2025-04-14",
+        instructions=user_instructions,
+        tools=None,
+        voice_settings=voice_settings,
+        chunk_size=1600,
+        realtime_generation=True,
+    )
+    state = user.get_init_state()
+    state.input_turn_taking_buffer.append(
+        AssistantMessage(role="assistant", content="Ready?", contains_speech=True)
+    )
+    started, release = Event(), Event()
+
+    def generate(message, snapshot):
+        started.set()
+        assert release.wait(5), "Caller generation blocked the audio tick loop"
+        snapshot.user_utterance_count += 1
+        return UserMessage(role="user", content="###STOP###"), snapshot
+
+    monkeypatch.setattr(user, "_generate_full_duplex_voice_message", generate)
+    action = TurnTakingAction(action="generate_message")
+    try:
+        waiting, state = user._perform_turn_taking_action(state, action)
+        assert started.wait(1)
+        assert waiting.contains_speech is False
+        for text in ("Your ", "order ", "shipped."):
+            waiting, state = user.get_next_chunk(
+                state,
+                AssistantMessage(role="assistant", content=text, contains_speech=True),
+            )
+            assert waiting.contains_speech is False
+        assert state.tick_count == 3
+        release.set()
+        user._generation.result(timeout=1)
+        reply, state = user._perform_turn_taking_action(state, action)
+        assert reply.content == "###STOP###"
+        assert state.user_utterance_count == 1
+        assert "".join(chunk.content for chunk in state.input_turn_taking_buffer) == (
+            "Your order shipped."
+        )
+    finally:
+        release.set()
+        user.stop(state)
 
 
 def test_voice_streaming_user_contains_speech_on_all_responses(
@@ -444,6 +500,54 @@ def test_voice_streaming_user_role_flipping(
     # Test flip_roles method
     flipped = state.flip_roles()
     assert flipped is not None
+
+
+def test_flip_roles_drops_empty_and_whitespace_turns(
+    streaming_user: VoiceStreamingUserSimulator,
+):
+    """Empty/whitespace-only turns are dropped when flipping roles.
+
+    Regression: such turns used to leak through as content-less messages and
+    fail validate_message_history (which strips whitespace before asserting a
+    message has content or tool calls).
+    """
+    messages = [
+        UserMessage(role="user", content="I want to fly to Seattle"),
+        UserMessage(role="user", content="   "),  # whitespace-only -> dropped
+        UserMessage(role="user", content=""),  # empty -> dropped
+        AssistantMessage(role="assistant", content="Sure, when?"),
+        AssistantMessage(role="assistant", content="  "),  # whitespace -> dropped
+    ]
+
+    flipped = streaming_user._flip_roles_for_llm(messages)
+
+    # Only the two non-empty turns survive, with roles flipped.
+    assert len(flipped) == 2
+    assert isinstance(flipped[0], AssistantMessage)
+    assert flipped[0].content == "I want to fly to Seattle"
+    assert isinstance(flipped[1], UserMessage)
+    assert flipped[1].content == "Sure, when?"
+
+
+def test_flip_roles_keeps_empty_content_tool_call(
+    streaming_user: VoiceStreamingUserSimulator,
+):
+    """A user tool call with empty content is retained (is_tool_call() is true)."""
+    tool_call = ToolCall(
+        id="call_1",
+        name="book_flight",
+        arguments={"destination": "Seattle"},
+        requestor="user",
+    )
+    messages = [
+        UserMessage(role="user", content="", tool_calls=[tool_call]),
+    ]
+
+    flipped = streaming_user._flip_roles_for_llm(messages)
+
+    assert len(flipped) == 1
+    assert isinstance(flipped[0], AssistantMessage)
+    assert flipped[0].tool_calls == [tool_call]
 
 
 # --- Tool Call Tests ---

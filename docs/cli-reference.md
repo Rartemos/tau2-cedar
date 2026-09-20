@@ -53,6 +53,7 @@ tau2 run \
 | `--auto-resume` | Automatically resume from existing save file without prompting |
 | `--auto-review` | Automatically run LLM conversation review after each simulation |
 | `--review-mode` | Review mode when `--auto-review` is on: `full` or `user` (default: `full`) |
+| `--review-model` | LLM model to use for review calls (default: `claude-opus-4-5`) |
 | `--hallucination-retries` | Max retries when user simulator hallucination is detected (full-duplex only, default: `3`). Set to `0` to disable |
 | `--timeout` | Maximum wallclock time in seconds per simulation (no timeout by default) |
 | `--audio-native` | Enable audio native mode (voice full-duplex) |
@@ -217,6 +218,7 @@ tau2 review <path>
 | `--limit` | Limit review to first N simulations |
 | `--task-ids` | Only review simulations for these task IDs |
 | `--log-llm` | Log LLM request/response for each review call |
+| `--review-model` | LLM model to use for review calls (default: `claude-opus-4-5`) |
 
 ---
 

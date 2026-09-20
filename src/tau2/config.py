@@ -99,7 +99,7 @@ DEFAULT_SPEECH_COMPLEXITY = "regular"  # overridable: "control", "regular"
 DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION = "discrete_time_audio_native_agent"
 DEFAULT_AUDIO_NATIVE_USER_IMPLEMENTATION = "voice_streaming_user_simulator"
 DEFAULT_AUDIO_NATIVE_PROVIDER = (
-    "openai"  # overridable: openai, gemini, xai, nova, qwen, livekit
+    "openai"  # overridable: openai, openai_live, gemini, xai, nova, qwen, livekit
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
 DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable
@@ -136,6 +136,9 @@ DEFAULT_AUDIO_NATIVE_MAX_INACTIVE_SECONDS = 40.0  # fixed, stall detection
 # OPENAI PROVIDER (overridable model/voice, fixed API constants)
 # =============================================================================
 DEFAULT_OPENAI_REALTIME_MODEL = "gpt-realtime-1.5"  # overridable
+DEFAULT_OPENAI_LIVE_MODEL = (
+    "gpt-live-1-diamond-alpha"  # overridable, limited-access alias
+)
 _LEGACY_OPENAI_REALTIME_MODEL = "gpt-realtime-2025-08-28"
 DEFAULT_OPENAI_REALTIME_BASE_URL = "wss://api.openai.com/v1/realtime"  # fixed
 DEFAULT_OPENAI_VOICE = "alloy"  # overridable
@@ -158,15 +161,20 @@ _LEGACY_GEMINI_MODEL = "gemini-live-2.5-flash-native-audio"
 DEFAULT_GEMINI_VOICE = "Zephyr"  # overridable
 DEFAULT_GEMINI_PROACTIVE_AUDIO = True  # fixed
 DEFAULT_GEMINI_LOCATION = "us-central1"  # fixed
-DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
+DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 8000  # fixed, API-defined
 DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
+DEFAULT_GEMINI_TRANSCRIPTION_LANGUAGE_CODES = ["en-US"]  # overridable
 
 # =============================================================================
-# XAI PROVIDER (overridable voice, fixed API constants)
+# XAI PROVIDER (overridable model/voice, fixed API constants)
 # =============================================================================
 DEFAULT_XAI_REALTIME_BASE_URL = "wss://api.x.ai/v1/realtime"  # fixed
-DEFAULT_XAI_VOICE = "Ara"  # overridable: Ara, Rex, Sal, Eve, Leo
-DEFAULT_XAI_MODEL = "xai-realtime"  # fixed, determined by endpoint
+DEFAULT_XAI_VOICE = "ara"  # overridable; lowercase voice IDs (ara, rex, sal, eve, leo)
+# Model is selected via ?model= query param on the WebSocket URL.
+# Aliases: grok-voice-latest -> grok-voice-think-fast-2.0 (since 2026-08-05).
+# Reasoning: session.update reasoning.effort accepts "high" | "none"
+# (API default "high").
+DEFAULT_XAI_MODEL = "grok-voice-think-fast-2.0"  # overridable
 
 # =============================================================================
 # NOVA PROVIDER (overridable model/voice, fixed API constants)
@@ -183,8 +191,14 @@ DEFAULT_NOVA_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 DEFAULT_QWEN_REALTIME_URL = (
     "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime"  # fixed
 )
-DEFAULT_QWEN_MODEL = "qwen3-omni-flash-realtime"  # overridable
-DEFAULT_QWEN_VOICE = "Cherry"  # overridable
+# Qwen3.5-Omni realtime models support tool calling over WebSocket
+# (the older qwen3-omni-flash-realtime accepted tool configs but never
+# invoked them). Flash variant: qwen3.5-omni-flash-realtime.
+# Rate limits:
+# qwen3.5-omni-plus-realtime; 60 (requests per minute); 100,000 (tokens per minute)
+# qwen3.5-omni-plus-realtime-2026-03-15; 60 (requests per minute); 100,000 (tokens per minute)
+DEFAULT_QWEN_MODEL = "qwen3.5-omni-plus-realtime"  # overridable
+DEFAULT_QWEN_VOICE = "Tina"  # overridable; Qwen3.5-Omni-Realtime default voice
 DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
@@ -193,6 +207,7 @@ DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 # =============================================================================
 DEFAULT_AUDIO_NATIVE_MODELS = {
     "openai": DEFAULT_OPENAI_REALTIME_MODEL,
+    "openai_live": DEFAULT_OPENAI_LIVE_MODEL,
     "gemini": DEFAULT_GEMINI_MODEL,
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
@@ -202,8 +217,9 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
 
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "openai": None,
+    "openai_live": None,
     "gemini": "high",
-    "xai": None,
+    "xai": "high",
     "nova": None,
     "qwen": None,
     "livekit": None,
@@ -211,6 +227,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
 
 AUDIO_NATIVE_PROVIDER_TYPES = {
     "openai": "audio_native",
+    "openai_live": "audio_native",
     "gemini": "audio_native",
     "xai": "audio_native",
     "nova": "audio_native",

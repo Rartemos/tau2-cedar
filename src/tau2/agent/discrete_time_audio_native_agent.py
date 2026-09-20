@@ -74,13 +74,18 @@ from tau2.data_model.message import (
     ToolMessage,
     UserMessage,
 )
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.utils.utils import get_now
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
+from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.tick_result import TickResult
+from tau2.voice.pricing import compute_tick_cost
 
 # Provider type alias
-AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
+AudioNativeProvider = Literal[
+    "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit"
+]
 
 # VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[
@@ -211,6 +216,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         use_xml_prompt: bool = False,
         cascaded_config: Optional["CascadedConfig"] = None,
         audio_taps_dir: Optional[Path] = None,
+        live_config: Optional[LiveConfig] = None,
     ):
         """Initialize the discrete-time audio native agent.
 
@@ -254,6 +260,10 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.reasoning_effort = reasoning_effort
         self.max_inactive_seconds = max_inactive_seconds
         self.cascaded_config = cascaded_config
+        self.live_config = live_config
+        self._live_trace_path = (
+            audio_taps_dir / "live.jsonl" if audio_taps_dir else None
+        )
 
         # Audio format (defaults to telephony)
         self.audio_format = audio_format or TELEPHONY_AUDIO_FORMAT
@@ -266,7 +276,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         # pulling in websockets/aiohttp when voice extras aren't installed)
         if vad_config is not None:
             self.vad_config = vad_config
-        elif provider == "openai":
+        elif provider in {"openai", "openai_live"}:
             from tau2.voice.audio_native.openai.provider import (
                 OpenAIVADConfig,
                 OpenAIVADMode,
@@ -367,6 +377,8 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 reasoning_effort=self.reasoning_effort,
                 audio_format=self.audio_format,
                 cascaded_config=self.cascaded_config,
+                live_config=self.live_config,
+                trace_path=self._live_trace_path,
             )
         return self._adapter
 
@@ -630,10 +642,27 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         audio_format = self.audio_format
 
         # Check if there was actual speech (not just silence padding)
-        has_speech = len(tick_result.agent_audio_data) > 0
+        has_speech = (
+            tick_result.contains_speech
+            if tick_result.contains_speech is not None
+            else len(tick_result.agent_audio_data) > 0
+        )
 
         audio_content = base64.b64encode(agent_audio).decode("utf-8")
         content = transcript if transcript else None
+
+        # Per-message cost: priced from this tick's delta usage records (most
+        # ticks report none and cost 0.0). Cumulative meters (Nova, xAI audio
+        # minutes, STT) are priced once at session level, not per message, so
+        # SimulationRun.agent_cost — derived from the session usage ledger —
+        # is the authoritative total.
+        usage_records = tick_result.usage_records
+        cost = compute_tick_cost(usage_records) if usage_records else 0.0
+        usage = (
+            {"records": [r.model_dump(exclude_none=True) for r in usage_records]}
+            if usage_records
+            else None
+        )
 
         message = AssistantMessage(
             role="assistant",
@@ -646,6 +675,8 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             contains_speech=has_speech,
             raw_data=tick_result.model_dump(serialize_as_any=True),
             utterance_ids=tick_result.item_ids if tick_result.item_ids else None,
+            cost=cost,
+            usage=usage,
         )
         # Check if this is a stop message (done or transfer tool call)
         message = self._check_if_stop_toolcall(message)
@@ -673,10 +704,21 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             chunk_id=0,
             is_final_chunk=True,
             contains_speech=False,
+            cost=0.0,
         )
         # check if the message should be considered a stop message.
         message = self._check_if_stop_toolcall(message)
         return message
+
+    def get_usage_records(self) -> List[UsageRecord]:
+        """Provider usage records collected by the adapter.
+
+        Safe to call after stop()/cleanup(): the adapter's usage ledger
+        survives disconnect. Returns [] if no adapter was ever created.
+        """
+        if self._adapter is None:
+            return []
+        return self._adapter.get_usage_records()
 
     def create_initial_message(
         self, content: str = "Hi! How can I help you today?"
@@ -817,6 +859,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             use_xml_prompt=audio_native_config.use_xml_prompt,
             cascaded_config=getattr(audio_native_config, "cascaded_config", None),
             audio_taps_dir=audio_taps_dir,
+            live_config=audio_native_config.live_config,
         )
     else:
         # Fallback: use individual kwargs or defaults
