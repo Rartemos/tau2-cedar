@@ -48,12 +48,11 @@ class CedarAuthorizer:
     Args:
         domain_name (str): The name of the target domain.
         policy_name (str, optional): The target Cedar policy file. Defaults to None.
-        entity_name (str, optional): The target Cedar entities file. Defaults to None.
+        db (Any, optional): The target domain database. Defaults to None.
     
     Attributes:
         domain_name (str): The name of the target domain.
         target_policy (str): The target Cedar policy file.
-        target_entities (str): The target Cedar entities file.
         cedar_policies (str): The loaded Cedar policy string, or a deny-all fallback if missing.
         cedar_entities (list[dict[str, Any]]): The loaded Cedar entities, or an empty list if missing.
     """
@@ -81,7 +80,7 @@ class CedarAuthorizer:
         project_root = current_dir.parent.parent.parent
         policy_path = project_root / "cedar" / "policies" / self.domain_name / self.target_policy
         
-        # Fallback to static deny-all policy if file is missing.
+        # Fallback to static deny-all policy if file is missing
         if not policy_path.exists():
             logger.warning(
                 f"No matching Cedar policy file found at '{policy_path}'. "
@@ -100,7 +99,7 @@ class CedarAuthorizer:
     def generate_entities(
         self, 
         tool_name: str, 
-        arguments: dict[str, Any]
+        arguments: dict[str, Any],
     ) -> list[dict[str, Any]]:
         """Generates the full list of Cedar entities for a tool call.
         
@@ -115,7 +114,7 @@ class CedarAuthorizer:
             list[dict[str, Any]]: The complete entity slice for Cedar evaluation.
         """
         
-        # Base generic entities.
+        # Base generic entities
         entities: list[dict[str, Any]] = [
             {
                 "uid": {"type": "Agent", "id": "assistant"},
@@ -124,16 +123,16 @@ class CedarAuthorizer:
             }
         ]
         
-        # Add domain-specific entities (delegated to domain subclasses).
-        domain_entities = self.generate_domain_entities(tool_name, arguments)
+        # Add domain-specific entities (delegated to domain subclasses)
+        domain_entities = self._generate_domain_entities(tool_name, arguments)
         entities.extend(domain_entities)
         
         return entities
     
-    def generate_domain_entities(
+    def _generate_domain_entities(
         self, 
         tool_name: str, 
-        arguments: dict[str, Any]
+        arguments: dict[str, Any],
     ) -> list[dict[str, Any]]:
         """Hook method for domain-specific entity extraction.
         
@@ -150,7 +149,11 @@ class CedarAuthorizer:
         
         return []
     
-    def _determine_resource(self, tool_name: str, arguments: dict[str, Any]) -> str:
+    def _determine_resource(
+        self, 
+        tool_name: str, 
+        arguments: dict[str, Any],
+    ) -> str:
         """Determines the Cedar Resource identifier for a tool call.
 
         Args:
@@ -161,34 +164,32 @@ class CedarAuthorizer:
             str: The formatted Cedar Resource ID string;
                 defaults to a generic System::"EnvironmentState" resource if no ID is found.
         """
-        # Default resources.
+        # Default resources
         resource_type: str = "System"
         resource_id: str = "EnvironmentState"
 
-        # Extract entity properties using trailing identity keys. 
+        # Extract entity properties using trailing identity keys
         for key, value in arguments.items():
             if key.endswith("_id") and isinstance(value, str):
                 resource_type = key.replace("_id", "").title().replace("_", "")
                 resource_id = value
                 break
         
-        # If no ID is found, derive target scope directly from function suffix string.
+        # If no ID is found, derive target scope from the function name suffix
         if resource_type == "System":
-            if tool_name == "transfer_to_human_agents":
-                resource_type = "Reservation"
+            parts = tool_name.split("_")
+            if len(parts) > 1:
+                resource_type = parts[-1].title()
                 resource_id = "new_context"
-            elif tool_name == "search_direct_flight":
-                resource_type = "Flight"
-                resource_id = "new_context"
-            else:
-                parts = tool_name.split("_")
-                if len(parts) > 1:
-                    resource_type = parts[-1].title()
-                    resource_id = "new_context"
 
         return f'{resource_type}::"{resource_id}"'
         
-    def _characterize_tool_call(self, tool_name: str, arguments: dict[str, Any], requestor: str) -> dict[str, Any]:
+    def _characterize_tool_call(
+        self, 
+        tool_name: str, 
+        arguments: dict[str, Any], 
+        requestor: str,
+    ) -> dict[str, Any]:
         """Convert a tool call into a Cedar authorization request.
 
         Args:
@@ -199,7 +200,7 @@ class CedarAuthorizer:
         Returns:
             dict[str, Any]: A structured request containing the principal, action, resource, and context.
         """
-        # Map the requestor to its corresponding Cedar entity type definition.
+        # Map the requestor to its corresponding Cedar entity type definition
         if requestor.lower() in ("agent", "assistant") or requestor.lower().startswith("agent_"):
             principal = f'Agent::"{requestor}"'
         else:
@@ -207,7 +208,7 @@ class CedarAuthorizer:
                 
         action: str = f'Action::"{tool_name}"'
 
-        # Sanitize parameters via absolute JSON serialization sequence.
+        # Sanitize parameters via absolute JSON serialization sequence
         try:
             safe_context: dict[str, Any] = json.loads(
                 json.dumps(arguments or {}, default=str)
@@ -219,7 +220,7 @@ class CedarAuthorizer:
             )
             safe_context = {}
 
-        # Isolate resource mapping components using sanitized parameters.
+        # Isolate resource mapping components using sanitized parameters
         resource = self._determine_resource(tool_name, safe_context)
         
         return {
@@ -229,7 +230,12 @@ class CedarAuthorizer:
             "context": safe_context,
         }
 
-    def authorize_tool_call(self, tool_name: str, arguments: dict[str, Any], requestor: str) -> dict[str, Any]:
+    def authorize_tool_call(
+        self, 
+        tool_name: str, 
+        arguments: dict[str, Any], 
+        requestor: str,
+    ) -> dict[str, Any]:
         """Evaluates the request against the active Cedar policy engine.
 
         Args:
@@ -248,7 +254,7 @@ class CedarAuthorizer:
         entities: list[dict[str, Any]] = self.generate_entities(tool_name, arguments)
         start_time: float = time.perf_counter()
         
-        # Authorizes the request against the loaded Cedar policies and entities through cedarpy.
+        # Authorize request against Cedar policies and entities
         cedar_result = cedarpy.is_authorized(
             cedar_request,
             self.cedar_policies,
@@ -260,7 +266,7 @@ class CedarAuthorizer:
         policy_ids = [str(r) for r in cedar_result.diagnostics.reasons]
         eval_errors = [str(e) for e in cedar_result.diagnostics.errors]
 
-        # If Cedar denies the request, raise a custom exception containing the feedback and denial context.
+        # Raise exception containing feedback and denial context if denied
         if cedar_result.decision == cedarpy.Decision.Deny:
             raise CedarError(
                 tool_name=tool_name,

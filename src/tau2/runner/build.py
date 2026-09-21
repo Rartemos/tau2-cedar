@@ -347,6 +347,9 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     run_name = getattr(config, "save_to", None) or make_run_name(config)
     env_kwargs["save_dir"] = run_name
     
+    if task is not None and hasattr(task, "id"):
+        env_kwargs["task_id"] = str(task.id)
+    
     retrieval_config = getattr(config, "retrieval_config", None)
     if retrieval_config is not None:
         env_kwargs["retrieval_variant"] = retrieval_config

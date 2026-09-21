@@ -120,6 +120,8 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         self.user: BaseUserT = user
         self.environment = environment
         self.task = task
+        if hasattr(self.environment, "set_task_id") and self.task is not None:
+            self.environment.set_task_id(self.task.id)
         self.seed = seed
         self.simulation_id = simulation_id or str(uuid.uuid4())
 

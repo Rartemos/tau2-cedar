@@ -14,7 +14,6 @@ from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
 from tau2.domains.airline.cedar_authorizer import AirlineCedarAuthorizer
-from tau2.environment.tool_logger import ToolLogger
 
 
 def get_environment(
@@ -30,7 +29,7 @@ def get_environment(
     with open(AIRLINE_POLICY_PATH, "r") as fp:
         policy = fp.read()
         
-    # Instantiate the domain-specific authorizer with the shared FlightDB instance
+    # Instantiate the airline authorizer with the shared FlightDB instance
     authorizer = AirlineCedarAuthorizer(db=db)
     
     return Environment(

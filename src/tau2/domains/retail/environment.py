@@ -13,10 +13,13 @@ from tau2.domains.retail.utils import (
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
+from tau2.domains.retail.cedar_authorizer import RetailCedarAuthorizer
+
 
 def get_environment(
     db: Optional[RetailDB] = None,
     solo_mode: bool = False,
+    **kwargs,
 ) -> Environment:
     if solo_mode:
         raise ValueError("Retail domain does not support solo mode")
@@ -25,10 +28,16 @@ def get_environment(
     tools = RetailTools(db)
     with open(RETAIL_POLICY_PATH, "r") as fp:
         policy = fp.read()
+    
+    # Instantiate the retail authorizer with the shared RetailDB instance
+    authorizer = RetailCedarAuthorizer(db=db)
+    
     return Environment(
         domain_name="retail",
         policy=policy,
         tools=tools,
+        authorizer=authorizer,
+        **kwargs,
     )
 
 

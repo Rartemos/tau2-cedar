@@ -47,6 +47,7 @@ class Environment:
         user_tools: Optional[ToolKitBase] = None,
         authorizer: Optional[CedarAuthorizer] = None,
         solo_mode: bool = False,
+        task_id: Optional[str] = None,
         save_dir: Optional[str] = None,
     ):
         """
@@ -67,6 +68,8 @@ class Environment:
         if self.solo_mode:
             self.validate_solo_mode()
         self.sync_tools()
+        
+        self.task_id: str = str(task_id) if task_id is not None else "0"
 
         self.cedar_authorizer = authorizer or CedarAuthorizer(
             domain_name=self.domain_name, 
@@ -131,6 +134,14 @@ class Environment:
             [f"{i + 1}. {t.name}\n{t.short_desc}" for i, t in enumerate(tools)]
         )
 
+    def set_task_id(self, task_id: str) -> None:
+        """Set the active task ID for logging.
+        
+        Args:
+            task_id (str): The active task ID.
+        """
+        self.task_id = str(task_id)
+    
     def _has_tool(self, tool_name: str) -> bool:
         """Check if a tool exists in the environment.
 
@@ -154,7 +165,13 @@ class Environment:
                 return toolkit.tool_mutates_state(tool_name)
         return True  # safe fallback: assume mutation
 
-    def use_tool(self, tool_name: str, requestor: str, task_id: str = "0", **kwargs) -> Any:
+    def use_tool(
+        self, 
+        tool_name: str, 
+        requestor: str = "assistant", 
+        task_id: Optional[str] = None, 
+        **kwargs
+    ) -> Any:
         """Use a tool available to the assistant of the domain.
         
         If the tool call is denied by Cedar, returns a structured denial dict:
@@ -172,6 +189,8 @@ class Environment:
         Raises:
             ValueError: If the tools toolkit is not initialized.
         """
+        active_task_id: str | None = task_id or getattr(self, "task_id", "0")
+        
         try:
             cedar_auth_data = self.cedar_authorizer.authorize_tool_call(
                 tool_name=tool_name, 
@@ -183,7 +202,7 @@ class Environment:
                 f"Cedar denied '{tool_name}' for requestor '{requestor}': {e.reason}"
             )
             self.tool_logger.log_cedar_denied(
-                task_id=task_id,
+                task_id=active_task_id,
                 tool_name=e.tool_name,
                 requestor=e.requestor,
                 reason=e.reason,
@@ -204,7 +223,7 @@ class Environment:
         try:
             result = self.tools.use_tool(tool_name=tool_name, **kwargs)
             self.tool_logger.log_success(
-                task_id=task_id,
+                task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
                 arguments=kwargs,
@@ -216,7 +235,7 @@ class Environment:
             return result
         except Exception as e:
             self.tool_logger.log_error(
-                task_id=task_id,
+                task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
                 error=e,
@@ -227,7 +246,13 @@ class Environment:
             )
             raise
 
-    def use_user_tool(self, tool_name: str, requestor: str, task_id: str = "0", **kwargs) -> Any:
+    def use_user_tool(
+        self, 
+        tool_name: str, 
+        requestor: str = "user", 
+        task_id: Optional[str] = None, 
+        **kwargs
+    ) -> Any:
         """Use a tool available to the user of the domain.
         
         If the tool call is denied by Cedar, returns a structured denial dict:
@@ -245,6 +270,8 @@ class Environment:
         Raises:
             ValueError: If the user_tools toolkit is not initialized.
         """
+        active_task_id = task_id or getattr(self, "task_id", "0")
+        
         try:
             cedar_auth_data = self.cedar_authorizer.authorize_tool_call(
                 tool_name=tool_name, 
@@ -256,7 +283,7 @@ class Environment:
                 f"Cedar denied '{tool_name}' for requestor '{requestor}': {e.reason}"
             )
             self.tool_logger.log_cedar_denied(
-                task_id=task_id,
+                task_id=active_task_id,
                 tool_name=e.tool_name,
                 requestor=e.requestor,
                 reason=e.reason,
@@ -277,7 +304,7 @@ class Environment:
         try:
             result = self.user_tools.use_tool(tool_name=tool_name, **kwargs)
             self.tool_logger.log_success(
-                task_id=task_id,
+                task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
                 arguments=kwargs,
@@ -289,7 +316,7 @@ class Environment:
             return result
         except Exception as e:
             self.tool_logger.log_error(
-                task_id=task_id,
+                task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
                 error=e,
@@ -334,7 +361,11 @@ class Environment:
         Sync the user and assistant tools.
         Subclass should override this method if tools need to be synced.
         """
-        pass
+        if hasattr(self, "cedar_authorizer") and self.cedar_authorizer is not None:
+            if self.tools is not None and self.tools.db is not None:
+                self.cedar_authorizer.db = self.tools.db
+            elif self.user_tools is not None and self.user_tools.db is not None:
+                self.cedar_authorizer.db = self.user_tools.db
 
     def run_env_function_call(self, env_function_call: EnvFunctionCall) -> Any:
         """
@@ -506,6 +537,13 @@ class Environment:
                 # Sync tools.db to point to the same db instance as user_tools.db
                 if self.tools is not None and self.tools.db is not None:
                     self.tools.db = self.user_tools.db
+            
+            # Sync cedar_authorizer.db to the new database instance
+            if self.cedar_authorizer is not None:
+                if self.tools is not None and self.tools.db is not None:
+                    self.cedar_authorizer.db = self.tools.db
+                elif self.user_tools is not None and self.user_tools.db is not None:
+                    self.cedar_authorizer.db = self.user_tools.db
 
         if initialization_actions is not None:
             for action in initialization_actions:
