@@ -1,3 +1,25 @@
+# $\tau^2$-Cedar: Exploring Access Control for Agentic Systems
+
+> **Research Fork:** This repository extends [Sierra's tau2-bench](https://github.com/sierra-research/tau2-bench) with real-time access control and policy enforcement using the AWS Cedar policy engine ('cedarpy').
+
+## What is $\tau^2$-Cedar?
+
+**$\tau^2$-Cedar** integrates the AWS Cedar policy engine into the $\tau^2$-Bench multi-turn conversational loop to enforce deterministic access control on agentic tool calls. 
+
+Because LLMs are prone to hallucinations and prompt injections, prompt-based constraints cannot reliably prevent unauthorized actions. To address these vulnerabilities, $\tau^2$-Cedar introduces **CedarAuthorizer**, an interception layer within the runtime environment that intercepts and evaluates incoming tool requests against declarative Cedar policies before database mutations occur:
+
+### The 'CedarAuthorizer' Workflow
+1. **Request Construction** When an agent issues a tool call, `CedarAuthorizer` intercepts the request before database execution, formatting it into a formal Cedar authorization request (*Principal, Action, Resource, Context*).
+2. **Dynamic Entity Synthesis** The authorizer inspects live database states to generate up-to-date Cedar entities.
+3. **Policy Evaluation** The Cedar policy engine evaluates the request against domain Cedar policies, halting tool executions that violate policy rules. This prevents unwarranted database mutation.
+4. **Feedback Loop*** If an action was denied, the authorizer halts execution and sends diagnostic feedback (including the triggered policy ID and error context) back to the agent as tool output. This enables the agent to self-correct and explore alternative solutions that comply with the given policies.
+
+### Quick test with Cedar (Airline)
+* How to run the offline test: `python test/test_airline_authorizer.py`
+* Where policies live: `cedar/policies/<domain>/`
+* How to run an authorized simulation: `tau2 run --domain airline ...`
+
+
 # $\tau$-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
 
 [![python](https://img.shields.io/badge/Python-3.12%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
