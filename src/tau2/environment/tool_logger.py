@@ -1,55 +1,60 @@
+# Author:       Andrew Yohanes (Advisor: Prof. William Eiers)
+# Affiliation:  Stevens Institute for Artificial Intelligence (SIAI), Stevens Institute of Technology
+# Description:  Cedar tool execution telemetry system for tau2-bench
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 class ToolLogger:
-    """Records tool call outcomes to a structured JSONL file.
+    """Records tool call results and diagnostics.
     
-    Tracks three distinct statuses per invocation:
+    Each record captures one of three possible outcomes:
         - success: Cedar permitted the call and it executed without error.
-        - cedar_denied: Cedar explicitly blocked the call.
-        - error: Cedar permitted the call but it failed during execution.
+        - denied: Cedar blocked the call before execution.
+        - failed: Cedar permitted the call but execution failed.
             
     Attributes:
-        output_path (Path): Path to the output JSONL file.
+        output_path: Path to the output JSONL file.
     """
     
     def __init__(self, output_path: Path) -> None:
         self.output_path = output_path
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+    
     def _write(self, event: dict) -> None:
-        """Append a single event record to the output file.
+        """Append a single event record to the output JSONL file.
         
         Args:
-            event (dict): The event data to serialize and write.
+            event: The event dictionary to append.
         """
         with open(self.output_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(event) + "\n")
-        
-    def log_success(
+    
+    def record_success(
         self, 
         task_id: str, 
         tool_name: str, 
         requestor: str, 
         arguments: dict,
-        cedar_request: Optional[dict[str, Any]] = None,
-        cedar_overhead_ms: Optional[float] = None,
-        cedar_policy_ids: Optional[list[str]] = None,       
-        cedar_eval_errors: Optional[list[str]] = None,
+        cedar_overhead_ms: float | None = None,
+        cedar_request: dict[str, Any] | None = None,
+        cedar_policy_ids: list[str] | None = None,       
+        cedar_eval_errors: list[str] | None = None,
     ) -> None:
         """Log a successful tool call.
         
         Args:
-            task_id (str): The ID of the current simulation task.
-            tool_name (str): The name of the tool that was called.
-            requestor (str): The identity of the caller (e.g., "assistant" or "user").
-            arguments (dict): The arguments passed to the tool.
-            cedar_request (dict[str, Any], optional): The full Cedar authorization request dictionary. Defaults to None.
-            cedar_policy_ids (list[str], optional): The Cedar policy IDs that triggered the denial. Defaults to None.
-            cedar_eval_errors (list[str], optional): Any errors raised by the Cedar evaluation engine. Defaults to None.
+            task_id: The ID of the current task.
+            tool_name: The name of the tool call.
+            requestor: The requestor of the tool call.
+            arguments: The raw tool parameters.
+            cedar_overhead_ms: Evaluation latency in milliseconds.
+            cedar_request: The structured request evaluated by Cedar.
+            cedar_policy_ids: Policy IDs that permitted the tool call. 
+            cedar_eval_errors: Diagnostic errors from the Cedar engine.
         """
         self._write({
             "timestamp": _now(),
@@ -64,27 +69,28 @@ class ToolLogger:
             "cedar_eval_errors": cedar_eval_errors,
         })
         
-    def log_cedar_denied(
+    def record_denial(
         self, 
         task_id: str, 
         tool_name: str, 
         requestor: str, 
         reason: str,
-        cedar_request: Optional[dict[str, Any]] = None,
-        cedar_overhead_ms: Optional[float] = None,
-        cedar_policy_ids: Optional[list[str]] = None,       
-        cedar_eval_errors: Optional[list[str]] = None,
+        cedar_overhead_ms: float | None = None,
+        cedar_request: dict[str, Any] | None = None,
+        cedar_policy_ids: list[str] | None = None,       
+        cedar_eval_errors: list[str] | None = None,
     ) -> None:
-        """Log a tool call blocked by Cedar.
+        """Log a tool call that was blocked by Cedar.
         
         Args:
-            task_id (str): The ID of the current simulation task.
-            tool_name (str): The name of the tool that was denied.
-            requestor (str): The identity of the caller (e.g., "assistant" or "user").
-            reason (str): The Cedar policy feedback message explaining the denial.
-            cedar_request (dict[str, Any], optional): The full Cedar authorization request dictionary. Defaults to None.
-            cedar_policy_ids (list[str], optional): The Cedar policy IDs that triggered the denial. Defaults to None.
-            cedar_eval_errors (list[str], optional): Any errors raised by the Cedar evaluation engine. Defaults to None.
+            task_id: The ID of the current task.
+            tool_name: The name of the tool call.
+            requestor: The requestor of the tool call.
+            reason: The natural language feedback for the requestor.
+            cedar_overhead_ms: Evaluation latency in milliseconds.
+            cedar_request: The structured request evaluated by Cedar. 
+            cedar_policy_ids: Policy IDs that denied the tool call. 
+            cedar_eval_errors: Diagnostic errors from the Cedar engine.
         """
         self._write({
             "timestamp": _now(),
@@ -99,29 +105,28 @@ class ToolLogger:
             "cedar_eval_errors": cedar_eval_errors,
         })
         
-    def log_error(
+    def record_failure(
         self, 
         task_id: str, 
         tool_name: str, 
         requestor: str, 
-        error: Exception,
-        cedar_request: Optional[dict[str, Any]] = None,
-        cedar_overhead_ms: Optional[float] = None,
-        cedar_policy_ids: Optional[list[str]] = None,       
-        cedar_eval_errors: Optional[list[str]] = None,
+        reason: Exception,
+        cedar_overhead_ms: float | None = None,
+        cedar_request: dict[str, Any] | None = None,
+        cedar_policy_ids: list[str] | None = None,       
+        cedar_eval_errors: list[str] | None = None,
     ) -> None:
-        """Log a tool call that failed during execution.
-        
-        Cedar was not involved; the tool was authorized but raised an exception.
+        """Log a tool call that was allowed by Cedar, but failed during execution.
         
         Args:
-            task_id (str): The ID of the current simulation task.
-            tool_name (str): The name of the tool that failed.
-            requestor (str): The identity of the caller (e.g., "assistant" or "user").
-            error (Exception): The exception raised during tool execution.
-            cedar_request (dict[str, Any], optional): The full Cedar authorization request dictionary. Defaults to None.
-            cedar_policy_ids (list[str], optional): The Cedar policy IDs that triggered the denial. Defaults to None.
-            cedar_eval_errors (list[str], optional): Any errors raised by the Cedar evaluation engine. Defaults to None.
+            task_id: The ID of the current task.
+            tool_name: The name of the tool call.
+            requestor: The requestor of the tool call.
+            reason: The exception raised during tool execution.
+            cedar_overhead_ms: Evaluation latency in milliseconds.
+            cedar_request: The structured request evaluated by Cedar. 
+            cedar_policy_ids: Policy IDs that permitted the tool call. 
+            cedar_eval_errors: Diagnostic errors from the Cedar engine.
         """
         self._write({
             "timestamp": _now(),
@@ -130,7 +135,7 @@ class ToolLogger:
             "cedar_overhead_ms": cedar_overhead_ms,
             "tool": tool_name,
             "requestor": requestor,
-            "error": str(error),
+            "error": str(reason),
             "cedar_request": cedar_request,
             "cedar_policy_ids": cedar_policy_ids,            
             "cedar_eval_errors": cedar_eval_errors,

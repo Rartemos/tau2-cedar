@@ -1,42 +1,52 @@
+from pathlib import Path
 from typing import Any
 
 from tau2.domains.retail.data_model import RetailDB, GiftCard, Order, User, PaymentMethod
-from tau2.environment.cedar_authorization import CedarAuthorizer
+from tau2.environment.authorizer import CedarAuthorizer
 
 class RetailCedarAuthorizer(CedarAuthorizer):
     """Retail domain Cedar authorizer.
     
-    Extracts live entities from RetailDB to provide dynamic attributes
+    Extracts live entities from RetailDB to provide attributes
     (such as order status, cancellation reason, payment method validity,
-    item availability, etc.) required by the retail Cedar policies.
+    item availability, etc.) required by retail Cedar policies.
     """
     
     def __init__(
         self,
         db: RetailDB | None = None,
-        policy_name: str | None = None,
+        policy_path: str | Path | None = None,
+        schema_path: str | Path | None = None,
     ) -> None:
+        """Initialize the retail authorizer.
+    
+        Args:
+            db: RetailDB instance for live entity extraction.
+            policy_path: Path to the Cedar policy file. Defaults to ``retail.cedar``.
+            schema_path: Path to the Cedar schema file, if provided.
+        """
         super().__init__(
             domain_name="retail",
-            policy_name=policy_name or "retail.cedar",
+            policy_path=policy_path,
+            schema_path=schema_path,
             db=db,
         )
     
-    def _generate_domain_entities(
+    def build_entities(
         self, 
         tool_name: str, 
         arguments: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        """Extracts dynamic Order and User entities from RetailDB.
+        """Extracts Order and User entities from RetailDB.
         
         Args:
-            tool_name (str): The name of the tool being executed.
-            arguments (dict[str, Any]): Arguments passed to the tool call.
-                        
+            tool_name: The name of the tool call.
+            arguments: The raw tool parameters.
+                    
         Returns:
-            list[dict[str, Any]]: The domain entity definitions formatted for Cedar.
+            The entity slice formatted for Cedar evaluation, including base entities.
         """
-        entities: list[dict[str, Any]] = []
+        entities: list[dict[str, Any]] = super().build_entities(tool_name, arguments)
         
         if not self.db or not isinstance(self.db, RetailDB):
             return entities
@@ -156,13 +166,13 @@ class RetailCedarAuthorizer(CedarAuthorizer):
         arguments: dict[str, Any],
     ) -> str:
         """Determines the Cedar Resource identifier for the retail domain.
-            
+        
         Args:
-            tool_name (str): The name of the tool being called.
-            arguments (dict[str, Any]): The arguments passed to the tool.
-            
+            tool_name: The name of the tool call.
+            arguments: The sanitized tool parameters.
+        
         Returns:
-            str: The formatted Cedar Resource ID string.
+            The formatted Cedar Resource ID string.
         """
         if tool_name == "transfer_to_human_agents":
             order_id: str | None = arguments.get("order_id")

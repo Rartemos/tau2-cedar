@@ -13,7 +13,7 @@ from tau2.domains.airline.utils import (
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
-from tau2.domains.airline.cedar_authorizer import AirlineCedarAuthorizer
+from tau2.domains.airline.authorizer import AirlineCedarAuthorizer
 
 
 def get_environment(

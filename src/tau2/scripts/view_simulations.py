@@ -834,8 +834,8 @@ def handle_post_simulation_action(
                 event = json.loads(line)
                 status_color = {
                     "success": "green",
-                    "cedar_denied": "red",
-                    "error": "yellow"
+                    "denied": "red",
+                    "failed": "yellow"
                 }.get(event["status"], "white")
                 ConsoleDisplay.console.print(
                     f"  [{status_color}]{event['status'].upper():15}[/]  "

@@ -13,7 +13,7 @@ from tau2.domains.retail.utils import (
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
-from tau2.domains.retail.cedar_authorizer import RetailCedarAuthorizer
+from tau2.domains.retail.authorizer import RetailCedarAuthorizer
 
 
 def get_environment(

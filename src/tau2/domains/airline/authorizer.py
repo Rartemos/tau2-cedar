@@ -1,45 +1,55 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from tau2.domains.airline.data_model import FlightDB, Reservation, Flight, FlightDateStatus
-from tau2.environment.cedar_authorization import CedarAuthorizer
+from tau2.environment.authorizer import CedarAuthorizer
 
 class AirlineCedarAuthorizer(CedarAuthorizer):
     """Airline domain Cedar authorizer.
     
-    Extracts live entities from FlightDB to provide dynamic attributes
+    Extracts live entities from FlightDB to provide attributes
     (such as cabin, insurance status, cancellation reason, etc.)
-    required by the airline Cedar policies.
+    required by airline Cedar policies.
     """
     
     def __init__(
-        self, 
+        self,
         db: FlightDB | None = None, 
-        policy_name: str | None = None,
+        policy_path: str | Path | None = None,
+        schema_path: str | Path | None = None,
     ) -> None:
+        """Initialize the airline authorizer.
+    
+        Args:
+            db: FlightDB instance for live entity extraction.
+            policy_path: The Cedar policy file path. Defaults to ``airline.cedar``.
+            schema_path: The Cedar schema file path, if provided.
+        """
         super().__init__(
             domain_name="airline",
-            policy_name=policy_name or "airline.cedar",
+            policy_path=policy_path,
+            schema_path=schema_path,
             db=db,
         )
     
-    def _generate_domain_entities(
+    def build_entities(
         self, 
         tool_name: str, 
         arguments: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        """Extracts dynamic Reservation and Flight entities from FlightDB.
+        """Extract Reservation and Flight entities from FlightDB.
         
         Args:
-            tool_name (str): The name of the tool being executed.
-            arguments (dict[str, Any]): Arguments passed to the tool call.
+            tool_name: The name of the tool call.
+            arguments: The raw tool parameters.
             
         Returns:
-            list[dict[str, Any]]: The domain entity definitions formatted for Cedar.
+            The entity slice formatted for Cedar evaluation, including base entities.
         """
-        entities: list[dict[str, Any]] = []
-        reservation_id: str | None = arguments.get("reservation_id")
+        entities: list[dict[str, Any]] = super().build_entities(tool_name, arguments)
         
+        reservation_id: str | None = arguments.get("reservation_id")
         if not reservation_id or not self.db or not hasattr(self.db, "reservations"):
             return entities
         
@@ -109,11 +119,11 @@ class AirlineCedarAuthorizer(CedarAuthorizer):
         """Determines the Cedar Resource identifier for the airline domain.
         
         Args:
-            tool_name (str): The name of the tool being called.
-            arguments (dict[str, Any]): The arguments passed to the tool.
+            tool_name: The name of the tool call.
+            arguments: The sanitized tool parameters.
         
         Returns:
-            str: The formatted Cedar Resource ID string.
+            The formatted Cedar Resource ID string.
         """
         if tool_name == "transfer_to_human_agents":
             return 'Reservation::"new_context"'
