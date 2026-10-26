@@ -15,6 +15,8 @@ from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.orchestrator.orchestrator import Orchestrator
 
+from tau2.environment.cedar_logger import CedarLogger
+
 
 def run_simulation(
     orchestrator: Union[Orchestrator, FullDuplexOrchestrator],
@@ -60,6 +62,14 @@ def run_simulation(
 
     # Save the actual policy used for this simulation
     simulation.policy = orchestrator.environment.get_policy()
+    
+    # Save Cedar logs from the simulation
+    cedar_logger = getattr(orchestrator.environment, "cedar_logger", None)
+    if isinstance(cedar_logger, CedarLogger):
+        try:
+            cedar_logger.save_summary()
+        except Exception as e:
+            logger.warning(f"Failed to save Cedar summary: {e}")
 
     # Extract context from the orchestrator -- no external params needed
     domain = orchestrator.environment.get_domain_name()

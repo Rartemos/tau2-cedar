@@ -8,17 +8,23 @@
 
 Because LLMs are prone to hallucinations and prompt injections, prompt-based constraints cannot reliably prevent unauthorized actions. To address these vulnerabilities, $\tau^2$-Cedar introduces **CedarAuthorizer**, an interception layer within the runtime environment that intercepts and evaluates incoming tool requests against declarative Cedar policies before database mutations occur:
 
-### The 'CedarAuthorizer' Workflow
+### The CedarAuthorizer Workflow
 1. **Request Construction** When an agent issues a tool call, `CedarAuthorizer` intercepts the request before database execution, formatting it into a formal Cedar authorization request (*Principal, Action, Resource, Context*).
 2. **Dynamic Entity Synthesis** The authorizer inspects live database states to generate up-to-date Cedar entities.
 3. **Policy Evaluation** The Cedar policy engine evaluates the request against domain Cedar policies, halting tool executions that violate policy rules. This prevents unwarranted database mutation.
 4. **Feedback Loop*** If an action was denied, the authorizer halts execution and sends diagnostic feedback (including the triggered policy ID and error context) back to the agent as tool output. This enables the agent to self-correct and explore alternative solutions that comply with the given policies.
 
-### Quick test with Cedar (Airline)
-* How to run the offline test: `python test/test_airline_authorizer.py`
-* Where policies live: `cedar/policies/<domain>/`
-* How to run an authorized simulation: `tau2 run --domain airline ...`
+## Quick Test
 
+### Run an offline test
+
+```bash
+python tests/test_authorizer/test_<domain>_authorizer.py
+```
+
+Cedar policies are stored in `cedar/policies/<domain>/`. Cedar schemas are stored in `cedar/schemas/<domain>/`.
+
+### 
 
 # $\tau$-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
 

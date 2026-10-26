@@ -17,6 +17,7 @@ class RetailCedarAuthorizer(CedarAuthorizer):
         db: RetailDB | None = None,
         policy_path: str | Path | None = None,
         schema_path: str | Path | None = None,
+        **kwargs,
     ) -> None:
         """Initialize the retail authorizer.
     
@@ -24,12 +25,14 @@ class RetailCedarAuthorizer(CedarAuthorizer):
             db: RetailDB instance for live entity extraction.
             policy_path: Path to the Cedar policy file. Defaults to ``retail.cedar``.
             schema_path: Path to the Cedar schema file, if provided.
+            **kwargs: Additional keyword arguments forwarded to CedarAuthorizer.
         """
         super().__init__(
             domain_name="retail",
             policy_path=policy_path,
             schema_path=schema_path,
             db=db,
+            **kwargs,
         )
     
     def build_entities(
@@ -46,9 +49,12 @@ class RetailCedarAuthorizer(CedarAuthorizer):
         Returns:
             The entity slice formatted for Cedar evaluation, including base entities.
         """
-        entities: list[dict[str, Any]] = super().build_entities(tool_name, arguments)
+        entities: list[dict[str, Any]] = [
+            entity for entity in super().build_entities(tool_name, arguments) 
+            if entity["uid"]["type"] != "User"
+        ]
         
-        if not self.db or not isinstance(self.db, RetailDB):
+        if not self.db or not hasattr(self.db, "orders"):
             return entities
         
         order_id: str | None = arguments.get("order_id")
@@ -113,7 +119,7 @@ class RetailCedarAuthorizer(CedarAuthorizer):
                 "is_original_payment": is_original_payment,
                 "is_same_as_current_payment": is_same_as_current,
                 "is_gift_card": is_gift_card,
-                "gift_card_balance": gift_card_balance,
+                "gift_card_balance": int(gift_card_balance),
                 "items_exist_in_order": items_exist_in_order,
                 "item_count_matches": item_count_matches,
                 "has_been_modified_or_cancelled": order.status in (

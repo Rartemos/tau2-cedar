@@ -13,12 +13,14 @@ from tau2.domains.airline.utils import (
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
+from tau2.environment.authorizer import CedarAuthorizer
 from tau2.domains.airline.authorizer import AirlineCedarAuthorizer
 
 
 def get_environment(
     db: Optional[FlightDB] = None,
     solo_mode: bool = False,
+    authorizer: Optional[CedarAuthorizer] = None,
     **kwargs,
 ) -> Environment:
     if solo_mode:
@@ -30,7 +32,8 @@ def get_environment(
         policy = fp.read()
         
     # Instantiate the airline authorizer with the shared FlightDB instance
-    authorizer = AirlineCedarAuthorizer(db=db)
+    if authorizer is None:
+        authorizer = AirlineCedarAuthorizer(db=db)
     
     return Environment(
         domain_name="airline",

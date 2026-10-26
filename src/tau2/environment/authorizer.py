@@ -12,6 +12,7 @@ from loguru import logger
 import cedarpy
 
 DEFAULT_POLICIES_DIR: Path = Path(__file__).resolve().parents[3] / "cedar" / "policies"
+DEFAULT_SCHEMA_DIR: Path = Path(__file__).resolve().parents[3] / "cedar" / "schemas"
 
 
 class CedarError(Exception):
@@ -35,17 +36,17 @@ class CedarError(Exception):
         requestor: str, 
         reason: str,
         cedar_overhead_ms: float | None = None,
-        cedar_request: dict[str, Any] | None = None,
         cedar_policy_ids: list[str] | None = None, 
         cedar_eval_errors: list[str] | None = None,
+        cedar_request: dict[str, Any] | None = None,
     ) -> None:
         self.tool_name = tool_name
         self.requestor = requestor
         self.reason = reason
         self.cedar_overhead_ms = cedar_overhead_ms
-        self.cedar_request = cedar_request
         self.cedar_policy_ids = cedar_policy_ids            
         self.cedar_eval_errors = cedar_eval_errors 
+        self.cedar_request = cedar_request
         super().__init__(reason)
 
 class CedarAuthorizer:
@@ -55,42 +56,54 @@ class CedarAuthorizer:
     authorization requests, and evaluates them against Cedar policies.
     
     Attributes:
+        default_feedback_mode: The agent will receive structured feedback for Cedar denials.
         domain_name: The name of the domain.
+        db: The target database for domain entity extraction.
         policy_path: The Cedar policy file path, if provided.
         schema_path: The Cedar schema file path, if provided.
         cedar_policies: The loaded Cedar policy string. Defaults to a forbid-all policy.
         cedar_schema: The loaded Cedar schema string, or None.
-        db: The target database for domain entity extraction.
+        feedback_mode: Whether structured feedback is sent to the agent when a tool call is denied.
     """
+    
+    default_feedback_mode: bool = False # If the agent receives structured feedback
     
     def __init__(
         self, 
         domain_name: str, 
+        db: Any | None = None,
         policy_path: str | Path | None = None, 
         schema_path: str | Path | None = None,
-        db: Any | None = None,
-        feedback_mode: bool = False,
+        feedback_mode: bool | None = None,
     ) -> None:
         """Initialize the authorizer.
         
         Args:
             domain_name: The name of the domain.
+            db: The target database for extracting entities.
             policy_path: The Cedar policy file path, or None.
             schema_path: The Cedar schema file path, or None.
-            db: The target database, passed to subclasses for building entities.
-            feedback_mode: Toggle structured Cedar feedback for agents. Defaults to False.
+            feedback_mode: Toggle structured Cedar feedback for agents. If None,
+                defaults to ``CedarAuthorizer.default_feedback_mode``.
         """
         self.domain_name = domain_name.strip().lower()
         self.db = db
         
         default_policy: Path = DEFAULT_POLICIES_DIR / self.domain_name / f"{self.domain_name}.cedar"
         self.policy_path = Path(policy_path) if policy_path is not None else default_policy
-        self.schema_path = Path(schema_path) if schema_path is not None else None
+        
+        default_schema: Path = DEFAULT_SCHEMA_DIR / self.domain_name / f"{self.domain_name}.cedarschema"
+        if schema_path is not None:
+            self.schema_path = Path(schema_path)
+        elif default_schema.exists():
+            self.schema_path = default_schema
+        else:
+            self.schema_path = None
         
         self.cedar_policies: str = self._load_policies()
         self.cedar_schema: str | None = self._load_schema()
         
-        self.feedback_mode: bool = feedback_mode
+        self.feedback_mode: bool = self.default_feedback_mode if feedback_mode is None else feedback_mode
 
     def _load_policies(self) -> str:
         """Load the Cedar policy file.
@@ -100,7 +113,7 @@ class CedarAuthorizer:
             if the policy file path is omitted, missing, or unreadable.
         """
         try:
-            content = self.policy_path.read_text(encoding="utf-8")
+            content: str = self.policy_path.read_text(encoding="utf-8")
             logger.info(f"Successfully located and loading Cedar policy from: {self.policy_path}")
             return content
         except FileNotFoundError:
@@ -123,13 +136,22 @@ class CedarAuthorizer:
             return None
         
         try:
+            content: str = self.schema_path.read_text(encoding="utf-8")
+            json.loads(content)
             logger.info(f"Successfully loaded Cedar schema from: {self.schema_path}")
-            return self.schema_path.read_text(encoding="utf-8")
+            return content
         except FileNotFoundError:
             logger.warning(
                 f"Cedar schema file not found at '{self.schema_path}'. "
                 "Proceeding with no schema file."
             )
+            return None
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            logger.debug(
+                f"Cedar schema at '{self.schema_path}' is in .cedarschema format. "
+                "cedarpy requires JSON-formatted schemas; proceeding without schema validation."
+            )
+            return None
         except Exception as e:
             logger.error(f"Error reading schema file at '{self.schema_path}': {e}")
             return None
@@ -156,11 +178,6 @@ class CedarAuthorizer:
             {
                 "uid": {"type": "Agent", "id": "assistant"},
                 "attrs": {"cannot_handle": False},
-                "parents": [],
-            },
-            {
-                "uid": {"type": "User", "id": "user"},
-                "attrs": {},
                 "parents": [],
             }
         ]
@@ -301,8 +318,8 @@ class CedarAuthorizer:
             if self.feedback_mode:
                 reason=(
                     f"The '{requestor}' is not authorized to use the '{tool_name}' tool. "
-                    "This action is restricted by the active Cedar policy. "
-                    "Do not retry this tool. Politely explain the restriction to the user."
+                    "This action is restricted by the active Cedar policy. Do not retry this tool. "
+                    "Politely explain the restriction to the user."
                 )
             else:
                 reason=(f"Action denied. The '{tool_name}' tool was blocked.")
@@ -312,15 +329,15 @@ class CedarAuthorizer:
                 requestor=requestor,
                 reason=reason,
                 cedar_overhead_ms=cedar_overhead_ms,
-                cedar_request=cedar_request,
                 cedar_policy_ids=policy_ids,
                 cedar_eval_errors=eval_errors,
+                cedar_request=cedar_request,
             )
             
         return {
             "cedar_overhead_ms": cedar_overhead_ms,
-            "cedar_request": cedar_request,
             "cedar_policy_ids": policy_ids,
             "cedar_eval_errors": eval_errors,
+            "cedar_request": cedar_request,
         }
         

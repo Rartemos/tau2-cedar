@@ -1,0 +1,122 @@
+
+entity Agent {
+    cannot_handle: Bool,
+};
+
+entity User {
+    membership: String,
+};
+
+entity Reservation {
+    cabin: String,
+    insurance: String,
+    total_baggages: Long,
+    passenger_count: Long,
+    cancellation_reason: String,
+    booked_within_24hrs: Bool,
+    airline_cancelled: Bool,
+    any_flight_already_flown: Bool,
+    amount: Long,
+    user_modified_or_cancelled: Bool,
+    origin_changed: Bool,
+    destination_changed: Bool,
+    payment_not_in_profile: Bool,
+    new_baggage_count: Long,
+    cabin_mismatch: Bool,
+    certificate_count: Long,
+    credit_card_count: Long,
+    gift_card_count: Long,
+};
+
+entity Flight {
+    status: String,
+};
+
+entity System {};
+
+action cancel_reservation appliesTo {
+    principal: [Agent],
+    resource: [Reservation],
+};
+
+action send_certificate appliesTo {
+    principal: [Agent],
+    resource: [User],
+    context: {
+        membership: String,
+        insurance: String,
+        cabin: String,
+        confirmed: Bool,
+    },
+};
+
+action update_reservation_flights appliesTo {
+    principal: [Agent],
+    resource: [Reservation],
+};
+
+action update_reservation_baggages appliesTo {
+    principal: [Agent],
+    resource: [Reservation],
+};
+
+action update_reservation_passengers appliesTo {
+    principal: [Agent],
+    resource: [Reservation],
+};
+
+action changeCabin appliesTo {
+    principal: [Agent],
+    resource: [Reservation],
+};
+
+action book_reservation appliesTo {
+    principal: [Agent],
+    resource: [User],
+    context: {
+        passenger_count: Long,
+        certificate_count: Long,
+        credit_card_count: Long,
+        gift_card_count: Long,
+    },
+};
+
+action get_user_details appliesTo {
+    principal: [Agent],
+    resource: [User],
+};
+
+action get_reservation_details appliesTo {
+    principal: [Agent],
+    resource: [Reservation],
+};
+
+action search_direct_flight appliesTo {
+    principal: [Agent],
+    resource: [Flight],
+};
+
+action search_onestop_flight appliesTo {
+    principal: [Agent],
+    resource: [Flight],
+};
+
+action get_flight_status appliesTo {
+    principal: [Agent],
+    resource: [Flight],
+};
+
+action list_all_airports appliesTo {
+    principal: [Agent],
+    resource: [System],
+};
+
+action calculate appliesTo {
+    principal: [Agent],
+    resource: [System],
+};
+
+action transfer_to_human_agents appliesTo {
+    principal: [Agent],
+    resource: [System],
+};

@@ -92,10 +92,11 @@ tau2 = "tau2.cli:main"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    "ignore::DeprecationWarning:litellm.*:",
+    "ignore::DeprecationWarning",
     "ignore:Pydantic serializer warnings:UserWarning:pydantic.*:",
 ]
-asyncio_default_fixture_loop_scope = "function"
+# "ignore::DeprecationWarning:litellm.*:",
+# asyncio_default_fixture_loop_scope = "function"
 markers = [
     "full_duplex_integration: marks tests as full-duplex integration tests requiring OpenAI Realtime API and TTS (deselect with '-m \"not full_duplex_integration\"')",
 ]

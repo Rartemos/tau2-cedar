@@ -24,7 +24,7 @@ from tau2.environment.db import DB
 from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolSignature, get_tool_signatures
 from tau2.environment.authorizer import CedarAuthorizer, CedarError
-from tau2.environment.tool_logger import ToolLogger
+from tau2.environment.cedar_logger import CedarLogger
 from tau2.utils.utils import DATA_DIR
 
 DEFAULT_SIMULATIONS_DIR: Path = DATA_DIR / "simulations"
@@ -56,9 +56,9 @@ class Environment:
         tools: Optional[ToolKitBase] = None,
         user_tools: Optional[ToolKitBase] = None,
         authorizer: Optional[CedarAuthorizer] = None,
-        solo_mode: bool = False,
         task_id: Optional[str] = None,
         save_dir: Optional[str] = None,
+        solo_mode: bool = False,
     ):
         """
         Environment
@@ -67,7 +67,7 @@ class Environment:
             policy: The policy of the domain.
             tools: The tools available to the assistant in the domain.
             user_tools: The tools available to the user in the domain.
-            authorizer: The Cedar authorizer for intercepting and authorizing tool calls.
+            authorizer: The Cedar authorizer for the domain.
             solo_mode: The agent will have access to both user and assistant tools.
         """
         self.domain_name = domain_name
@@ -75,19 +75,20 @@ class Environment:
         self.tools = tools
         self.user_tools = user_tools
         self.solo_mode = solo_mode
-        if self.solo_mode:
-            self.validate_solo_mode()
-        self.sync_tools()
         
         self.task_id: str = str(task_id) if task_id is not None else "0"
 
-        self.cedar_authorizer = authorizer or CedarAuthorizer(
+        self.cedar_authorizer: CedarAuthorizer = authorizer or CedarAuthorizer(
             domain_name=self.domain_name, 
             db=getattr(tools, "db", None) if tools is not None else None,
         )
         
-        sim_dir = DEFAULT_SIMULATIONS_DIR / (save_dir or "default_simulation")
-        self.tool_logger = ToolLogger(sim_dir / "tool_calls.jsonl")
+        sim_dir: Path = DEFAULT_SIMULATIONS_DIR / (save_dir or "default_simulation")
+        self.cedar_logger: CedarLogger = CedarLogger(sim_dir / "cedar_calls.jsonl")
+        
+        if self.solo_mode:
+            self.validate_solo_mode()
+        self.sync_tools()
 
     def get_domain_name(self) -> str:
         """
@@ -196,18 +197,19 @@ class Environment:
             logger.warning(
                 f"Cedar denied '{tool_name}' for requestor '{requestor}': {e.reason}"
             )
-            self.tool_logger.record_denial(
+            self.cedar_logger.record_deny(
                 task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
-                reason=e.reason,
+                feedback=e.reason,
+                arguments=kwargs,
                 cedar_overhead_ms=e.cedar_overhead_ms,
-                cedar_request=e.cedar_request,
                 cedar_policy_ids=e.cedar_policy_ids,
                 cedar_eval_errors=e.cedar_eval_errors,
+                cedar_request=e.cedar_request,
             )
             return {
-                "status": "denied",
+                "decision": "deny",
                 "tool": e.tool_name,
                 "policy_feedback": e.reason,
             }
@@ -216,33 +218,34 @@ class Environment:
             raise ValueError(f"{toolkit_name} not available")
 
         cedar_overhead_ms = cedar_data.get("cedar_overhead_ms")
-        cedar_request = cedar_data.get("cedar_request")
         cedar_policy_ids = cedar_data.get("cedar_policy_ids")
         cedar_eval_errors = cedar_data.get("cedar_eval_errors")
+        cedar_request = cedar_data.get("cedar_request")
         
         try:
             result = toolkit.use_tool(tool_name=tool_name, **kwargs)
-            self.tool_logger.record_success(
+            self.cedar_logger.record_allow(
                 task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
                 arguments=kwargs,
                 cedar_overhead_ms=cedar_overhead_ms,
-                cedar_request=cedar_request,
                 cedar_policy_ids=cedar_policy_ids,
                 cedar_eval_errors=cedar_eval_errors,
+                cedar_request=cedar_request,
             )
             return result
         except Exception as e:
-            self.tool_logger.record_failure(
+            self.cedar_logger.record_error(
                 task_id=active_task_id,
                 tool_name=tool_name,
                 requestor=requestor,
                 reason=e,
+                arguments=kwargs,
                 cedar_overhead_ms=cedar_overhead_ms,
-                cedar_request=cedar_request,
                 cedar_policy_ids=cedar_policy_ids,
                 cedar_eval_errors=cedar_eval_errors,
+                cedar_request=cedar_request,
             )
             raise
         
