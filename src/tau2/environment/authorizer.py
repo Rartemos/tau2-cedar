@@ -306,7 +306,6 @@ class CedarAuthorizer:
             schema=self.cedar_schema,
         )
         
-
         # Retrieve diagnostic data
         policy_ids = [str(r) for r in cedar_result.diagnostics.reasons]
         eval_errors = [str(e) for e in cedar_result.diagnostics.errors]
