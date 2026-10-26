@@ -6,25 +6,98 @@
 
 **$\tau^2$-Cedar** integrates the AWS Cedar policy engine into the $\tau^2$-Bench multi-turn conversational loop to enforce deterministic access control on agentic tool calls. 
 
-Because LLMs are prone to hallucinations and prompt injections, prompt-based constraints cannot reliably prevent unauthorized actions. To address these vulnerabilities, $\tau^2$-Cedar introduces **CedarAuthorizer**, an interception layer within the runtime environment that intercepts and evaluates incoming tool requests against declarative Cedar policies before database mutations occur:
+Because LLMs are prone to hallucinations and prompt injections, prompt-based constraints cannot reliably prevent unauthorized actions. To address these vulnerabilities, $\tau^2$-Cedar introduces a Cedar-based authorization layer within the runtime environment that intercepts and evaluates incoming tool requests against domain Cedar policies before database mutations occur.
 
 ### The CedarAuthorizer Workflow
-1. **Request Construction** When an agent issues a tool call, `CedarAuthorizer` intercepts the request before database execution, formatting it into a formal Cedar authorization request (*Principal, Action, Resource, Context*).
-2. **Dynamic Entity Synthesis** The authorizer inspects live database states to generate up-to-date Cedar entities.
-3. **Policy Evaluation** The Cedar policy engine evaluates the request against domain Cedar policies, halting tool executions that violate policy rules. This prevents unwarranted database mutation.
-4. **Feedback Loop*** If an action was denied, the authorizer halts execution and sends diagnostic feedback (including the triggered policy ID and error context) back to the agent as tool output. This enables the agent to self-correct and explore alternative solutions that comply with the given policies.
+1. **Request Construction** When an agent issues a tool call, the authorizer intercepts the request before database execution, formatting it into a formal Cedar request (*Principal, Action, Resource, Context*).
+2. **Dynamic Entity Extraction** The authorizer inspects live database states (`FlightDB`, `RetailDB`) to generate up-to-date Cedar entities during runtime.
+3. **Policy Evaluation** The Cedar engine evaluates the request against domain policies, blocking tool executions that violate given policies.
+4. **Feedback Loop** If an action was denied, the authorizer returns structured diagnostic feedback to the agent as tool output, enabling self-correction.
+5. **Telemetry** The authorizer records every authorization decision (allow/deny), evaluation latency (ms), and cedarpy diagnostics.
 
-## Quick Test
+## Getting Started
 
-### Run an offline test
-
+### 1. Install
 ```bash
-python tests/test_authorizer/test_<domain>_authorizer.py
+git clone https://github.com/neselab/tau2-cedar
+cd tau2-cedar
+uv sync --extra dev # installs core dependencies + cedarpy + dev/test tools (pytest, ruff)
 ```
 
-Cedar policies are stored in `cedar/policies/<domain>/`. Cedar schemas are stored in `cedar/schemas/<domain>/`.
+### 2. Run Offline Tests (0 API Credits)
 
-### 
+```bash
+# Test Cedar domain authorizers (airline & retail) and entity extraction
+uv run pytest tests/test_authorizer/ -v
+
+# Test Cedar logger and metric summaries
+uv run pytest tests/test_logger/ -v
+```
+
+### 3. Run an Evaluation
+```bash
+tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5
+```
+
+Cedar policies and schemas are located in:
+* Policies: `cedar/policies/<domain>/<domain>.cedar`
+* Schemas: `cedar/schemas/<domain>/<domain>.cedarschema`
+
+### 4. Inspect Cedar Telemetry
+Simulations automatically log authorization metrics to `data/simulations/<id>/cedar_summary.json`:
+```json
+{
+  "total_tool_calls": 24,
+  "decisions": {
+    "allow": 21,
+    "deny": 3,
+    "error": 0
+  },
+  "overhead_ms": {
+    "mean_ms": 4.12,
+    "median_ms": 3.85,
+    "p95_ms": 8.41,
+    "min_ms": 1.20,
+    "max_ms": 12.05
+  },
+  "tool_decisions": {
+    "get_order_details": { "allow": 15, "deny": 0, "error": 0 },
+    "cancel_pending_order": { "allow": 6, "deny": 2, "error": 0 },
+    "modify_pending_order_payment": { "allow": 0, "deny": 1, "error": 0 }
+  },
+  "policy_diagnostics": {
+    "policy_hits": { "retail::policy::cancel_order": 2 },
+    "eval_errors_count": 0
+  }
+}
+```
+
+Per-call metrics and diagnostics are stored in `cedar_calls.jsonl`.
+
+
+## $\tau^2$-Cedar File Structure
+
+This fork adds the following authorization, policy, and telemetry components to $\tau^2$-bench:
+
+```text
+cedar/
+  policies/<domain>/       # Cedar policies (.cedar)
+  schemas/<domain>/        # Cedar schemas (.cedarschema)
+data/simulations/<id>/
+  cedar_calls.jsonl        # Per-tool authorization logs 
+  cedar_summary.json       # Aggregated authorization data
+src/tau2/
+  environment/
+    authorizer.py          # Base Cedar authorizer
+    cedar_logger.py        # Cedar telemetry layer (cedar diagnostics)
+  domains/<domain>/
+    authorizer.py          # Domain-specific authorizers (for live entity extraction)
+tests/
+  test_authorizer/         # Offline tests for policy enforcement & entity extraction 
+  test_logger/             # Offline tests for Cedar telemetry & summaries
+```
+
+---
 
 # $\tau$-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
 
