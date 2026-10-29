@@ -5,14 +5,14 @@
 
 import json
 import time
+
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 import cedarpy
 
-DEFAULT_POLICIES_DIR: Path = Path(__file__).resolve().parents[3] / "cedar" / "policies"
-DEFAULT_SCHEMA_DIR: Path = Path(__file__).resolve().parents[3] / "cedar" / "schemas"
+from tau2.utils.utils import DEFAULT_POLICIES_DIR, DEFAULT_SCHEMA_DIR
 
 
 class CedarError(Exception):
@@ -81,7 +81,9 @@ class CedarAuthorizer:
         Args:
             domain_name: The name of the domain.
             db: The target database for extracting entities.
-            policy_path: The Cedar policy file path, or None.
+            policy_path: The Cedar policy filename or path. If none, 
+                defaults to the domain policy '<domain>.cedar' 
+                or 'permit_all' for mock domains. Fallback to 'forbid_all' if not found.
             schema_path: The Cedar schema file path, or None.
             feedback_mode: Toggle structured Cedar feedback for agents. If None,
                 defaults to ``CedarAuthorizer.default_feedback_mode``.
@@ -89,8 +91,12 @@ class CedarAuthorizer:
         self.domain_name = domain_name.strip().lower()
         self.db = db
         
-        default_policy: Path = DEFAULT_POLICIES_DIR / self.domain_name / f"{self.domain_name}.cedar"
-        self.policy_path = Path(policy_path) if policy_path is not None else default_policy
+        if policy_path is not None:
+            self.policy_path: str | Path = policy_path
+        elif self.domain_name in ("mock", "mock_domain"):
+            self.policy_path: str | Path = "permit_all"
+        else:
+            self.policy_path: str | Path = self.domain_name
         
         default_schema: Path = DEFAULT_SCHEMA_DIR / self.domain_name / f"{self.domain_name}.cedarschema"
         if schema_path is not None:
@@ -105,25 +111,35 @@ class CedarAuthorizer:
         
         self.feedback_mode: bool = self.default_feedback_mode if feedback_mode is None else feedback_mode
 
-    def _load_policies(self) -> str:
+    def _load_policies(self, policy_path: str | Path | None = None) -> str:
         """Load the Cedar policy file.
+        
+        Args:
+            policy_path: The Cedar policy filename or path. If None, uses self.policy_path.
         
         Returns:
             The raw Cedar policy string. Defaults to ``forbid(principal, action, resource);``
             if the policy file path is omitted, missing, or unreadable.
         """
-        try:
-            content: str = self.policy_path.read_text(encoding="utf-8")
-            logger.info(f"Successfully located and loading Cedar policy from: {self.policy_path}")
-            return content
-        except FileNotFoundError:
-            logger.warning(
-                f"No Cedar policy file found at '{self.policy_path}'. "
-                "Defaulting to forbid-all policy."
-            )
-        except Exception as e:
-            logger.error(f"Error reading policy file at '{self.policy_path}': {e}")
+        target: str | Path = policy_path or self.policy_path
+        direct_path: Path = Path(target)
+        
+        paths: list[Path] = [
+            direct_path,                                                                          # Direct policy path (if policy_path is type Path)
+            (DEFAULT_POLICIES_DIR / self.domain_name / direct_path.name).with_suffix(".cedar"),   # Target policy path (if policy filename was given)
+            (DEFAULT_POLICIES_DIR / direct_path.name).with_suffix(".cedar"),                      # Default domain policy path
+        ]
+        
+        for path in paths:
+            if path.is_file():
+                try:
+                    self.policy_path = path
+                    logger.info(f"Loaded Cedar policy from: {path}")
+                    return path.read_text(encoding="utf-8")
+                except Exception as e:
+                    logger.error(f"Error reading Cedar policy file at '{path}': {e}")
             
+        logger.warning(f"Cedar policy '{target}' not found. Defaulting to forbid-all.")
         return "forbid(principal, action, resource);"
     
     def _load_schema(self) -> str | None:

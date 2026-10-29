@@ -21,6 +21,7 @@ def get_environment(
     db: Optional[RetailDB] = None,
     solo_mode: bool = False,
     authorizer: Optional[CedarAuthorizer] = None,
+    cedar_policy: Optional[str] = None,
     **kwargs,
 ) -> Environment:
     if solo_mode:
@@ -31,9 +32,8 @@ def get_environment(
     with open(RETAIL_POLICY_PATH, "r") as fp:
         policy = fp.read()
     
-    # Instantiate the retail authorizer with the shared RetailDB instance
     if authorizer is None:
-        authorizer = RetailCedarAuthorizer(db=db)
+        authorizer = RetailCedarAuthorizer(db=db, policy_path=cedar_policy)
     
     return Environment(
         domain_name="retail",

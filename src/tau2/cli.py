@@ -152,6 +152,15 @@ def add_run_args(parser):
         help="The path to save the simulation results. Will be saved to data/simulations/<save_to>/results.json. If not provided, will save to <timestamp>_<domain>_<agent>_<user>. If the file already exists, it will try to resume the run.",
     )
     parser.add_argument(
+        "--cedar-policy",
+        type=str,
+        default=None,
+        help=(
+            "The Cedar policy filename (.cedar) used for access control enforcement. Cedar policies are located in cedar/<domain>/. "
+            "Defaults to the active domain policy ('<domain>.cedar'), fallback to 'forbid_all' if not found."
+        ),
+    )
+    parser.add_argument(
         "--max-concurrency",
         type=int,
         default=DEFAULT_MAX_CONCURRENCY,
@@ -695,6 +704,7 @@ def main():
             hallucination_retries=args.hallucination_retries,
             retrieval_config=args.retrieval_config,
             retrieval_config_kwargs=args.retrieval_config_kwargs,
+            cedar_policy=args.cedar_policy,
         )
 
         if audio_native_config is not None:

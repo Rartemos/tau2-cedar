@@ -56,6 +56,7 @@ class Environment:
         tools: Optional[ToolKitBase] = None,
         user_tools: Optional[ToolKitBase] = None,
         authorizer: Optional[CedarAuthorizer] = None,
+        cedar_policy: Optional[str] = None,
         task_id: Optional[str] = None,
         save_dir: Optional[str] = None,
         solo_mode: bool = False,
@@ -68,6 +69,7 @@ class Environment:
             tools: The tools available to the assistant in the domain.
             user_tools: The tools available to the user in the domain.
             authorizer: The Cedar authorizer for the domain.
+            cedar_policy: The target Cedar policy file. If None, defaults to '<domain>.cedar'.
             solo_mode: The agent will have access to both user and assistant tools.
         """
         self.domain_name = domain_name
@@ -81,6 +83,7 @@ class Environment:
         self.cedar_authorizer: CedarAuthorizer = authorizer or CedarAuthorizer(
             domain_name=self.domain_name, 
             db=getattr(tools, "db", None) if tools is not None else None,
+            policy_path=cedar_policy,
         )
         
         sim_dir: Path = DEFAULT_SIMULATIONS_DIR / (save_dir or "default_simulation")

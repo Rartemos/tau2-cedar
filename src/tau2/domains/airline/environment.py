@@ -21,6 +21,7 @@ def get_environment(
     db: Optional[FlightDB] = None,
     solo_mode: bool = False,
     authorizer: Optional[CedarAuthorizer] = None,
+    cedar_policy: Optional[str] = None,
     **kwargs,
 ) -> Environment:
     if solo_mode:
@@ -31,9 +32,8 @@ def get_environment(
     with open(AIRLINE_POLICY_PATH, "r") as fp:
         policy = fp.read()
         
-    # Instantiate the airline authorizer with the shared FlightDB instance
     if authorizer is None:
-        authorizer = AirlineCedarAuthorizer(db=db)
+        authorizer = AirlineCedarAuthorizer(db=db, policy_path=cedar_policy)
     
     return Environment(
         domain_name="airline",

@@ -13,6 +13,13 @@ from loguru import logger
 res = load_dotenv()
 if not res:
     logger.warning("No .env file found")
+    
+SOURCE_DIR = Path(__file__).parents[3]
+
+# Cedar directories
+CEDAR_DIR: Path = SOURCE_DIR / "cedar"
+DEFAULT_POLICIES_DIR: Path = CEDAR_DIR / "policies"
+DEFAULT_SCHEMA_DIR: Path = CEDAR_DIR / "schemas"
 
 # Try to get data directory from environment variable first
 DATA_DIR_ENV = os.getenv("TAU2_DATA_DIR")
@@ -23,7 +30,6 @@ if DATA_DIR_ENV:
     logger.info(f"Using data directory from environment: {DATA_DIR}")
 else:
     # Fallback to source directory (for development)
-    SOURCE_DIR = Path(__file__).parents[3]
     DATA_DIR = SOURCE_DIR / "data"
     logger.info(f"Using data directory from source: {DATA_DIR}")
 

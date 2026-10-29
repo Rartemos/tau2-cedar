@@ -508,6 +508,17 @@ class BaseRunConfig(BaseModel):
             default=None,
         ),
     ]
+    
+    cedar_policy: Annotated[
+        Optional[str],
+        Field(
+            description=(
+                "Cedar policy filename or path for access control enforcement. "
+                "If None, defaults to the active domain's policy (<domain>.cedar)."
+            ),
+            default=None,
+        ),
+    ]
 
     # ---- Abstract-ish properties (subclasses must override) ----
 

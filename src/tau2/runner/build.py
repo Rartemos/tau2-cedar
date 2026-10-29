@@ -349,6 +349,11 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     
     if task is not None and hasattr(task, "id"):
         env_kwargs["task_id"] = str(task.id)
+        
+    # Cedar policy flag extraction
+    cedar_policy = getattr(config, "cedar_policy", None)
+    if cedar_policy is not None:
+        env_kwargs["cedar_policy"] = cedar_policy
     
     retrieval_config = getattr(config, "retrieval_config", None)
     if retrieval_config is not None:
