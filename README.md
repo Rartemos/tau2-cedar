@@ -4,9 +4,11 @@
 
 ## What is $\tau^2$-Cedar?
 
-**$\tau^2$-Cedar** integrates the AWS Cedar policy engine into the $\tau^2$-Bench multi-turn conversational loop to enforce deterministic access control on agentic tool calls. 
+$\tau^2$-Cedar integrates the AWS Cedar policy engine into the $\tau^2$-Bench multi-turn conversational loop to enforce deterministic access control on agentic tool calls. 
 
-Because LLMs are prone to hallucinations and prompt injections, prompt-based constraints cannot reliably prevent unauthorized actions. To address these vulnerabilities, $\tau^2$-Cedar introduces a Cedar-based authorization layer within the runtime environment that intercepts and evaluates incoming tool requests against domain Cedar policies before database mutations occur.
+Because LLMs are prone to hallucinations and prompt injections, prompt-based constraints cannot reliably prevent unauthorized actions. To address these vulnerabilities, $\tau^2$-Cedar introduces a Cedar-based authorization layer within the runtime environment that intercepts and evaluates incoming tool requests against domain-specific Cedar policies before database mutations occur.
+
+> **Is it $\tau^2$-cedar or $\tau^3$-cedar?** We call it $\tau^2$-cedar, but both is correct!
 
 ### The CedarAuthorizer Workflow
 1. **Request Construction** When an agent issues a tool call, the authorizer intercepts the request before database execution, formatting it into a formal Cedar request (*Principal, Action, Resource, Context*).
@@ -36,8 +38,14 @@ uv run pytest tests/test_logger/ -v
 
 ### 3. Run an Evaluation
 ```bash
-tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5
+# Run an evaluation with Cedar enforcement (defaults to <domain>.cedar)
+tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5 
+
+# Run an evaluation without Cedar
+tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5 --cedar-policy "permit_all"
 ```
+
+> **Tip**: Include `--cedar-policy "policy_name"` to use a specific Cedar policy file for access control.
 
 Cedar policies and schemas are located in:
 * Policies: `cedar/policies/<domain>/<domain>.cedar`
