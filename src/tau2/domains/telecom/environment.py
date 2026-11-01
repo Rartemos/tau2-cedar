@@ -33,8 +33,9 @@ class TelecomEnvironment(Environment):
         policy: str,
         tools: TelecomTools,
         user_tools: TelecomUserTools,
+        **kwargs,
     ):
-        super().__init__(domain_name, policy, tools, user_tools)
+        super().__init__(domain_name, policy, tools, user_tools, **kwargs)
 
     def sync_tools(self):
         """
@@ -98,6 +99,7 @@ def get_environment(
     user_db: Optional[TelecomUserDB] = None,
     solo_mode: bool = False,
     policy_type: str = "manual",  # "manual" or "workflow"
+    **kwargs,
 ) -> TelecomEnvironment:
     if db is None:
         db = TelecomDB.load(TELECOM_DB_PATH)
@@ -140,6 +142,7 @@ def get_environment(
         policy=policy,
         tools=tools,
         user_tools=user_tools,
+        **kwargs,
     )
     if solo_mode:
         env.set_solo_mode(True)

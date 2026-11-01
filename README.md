@@ -1,6 +1,10 @@
 # $\tau^2$-Cedar: Exploring Access Control for Agentic Systems
 
-> **Research Fork:** This repository extends [Sierra's tau2-bench](https://github.com/sierra-research/tau2-bench) with real-time access control and policy enforcement using the AWS Cedar policy engine ('cedarpy').
+> **Research Fork:** This repository extends [Sierra's tau2-bench](https://github.com/sierra-research/tau2-bench) with real-time access control and policy enforcement using the AWS Cedar policy engine via cedarpy.
+
+> **Abstract: ** Autonomous agents are increasingly used to execute actions in critical domains and complex environments. However, because agentic artificial intelligence is prone to hallucinations, prompt injections, and misinterpretations, the use of these agents without proper guardrails poses serious risks to their users and the domain in which they operate. In this paper, we explore the effectiveness of access control systems in multi-turn, conversational simulators. Specifically, we investigate integrating the Cedar authorization engine into the $\tau^2$-bench framework to enforce access control and observe that Cedar introduces negligible runtime latency. Our results show that while performance heavily depends on the correctness of the underlying policies, Cedar intervention substantially increases pass@1 success rates by intercepting unsafe actions before database mutation and allowing agent self-correction within a task.
+
+> ⚠️ **Active Research:** This repository and paper are currently under active development at the Stevens Institute of Technology. Experimental benchmarks are ongoing.
 
 ## What is $\tau^2$-Cedar?
 
@@ -37,6 +41,7 @@ uv run pytest tests/test_logger/ -v
 ```
 
 ### 3. Run an Evaluation
+
 ```bash
 # Run an evaluation with Cedar enforcement (defaults to <domain>.cedar)
 tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5 
@@ -45,14 +50,16 @@ tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5
 tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5 --cedar-policy "permit_all"
 ```
 
-> **Tip**: Include `--cedar-policy "policy_name"` to use a specific Cedar policy file for access control.
-
 Cedar policies and schemas are located in:
 * Policies: `cedar/policies/<domain>/<domain>.cedar`
 * Schemas: `cedar/schemas/<domain>/<domain>.cedarschema`
 
-### 4. Inspect Cedar Telemetry
+> **Tip**: Include `--cedar-policy "policy_name"` to use a specific Cedar policy file for access control.
+
+### 4. Explore Cedar authorization data
+
 Simulations automatically log authorization metrics to `data/simulations/<id>/cedar_summary.json`:
+
 ```json
 {
   "total_tool_calls": 24,
@@ -82,6 +89,12 @@ Simulations automatically log authorization metrics to `data/simulations/<id>/ce
 
 Per-call metrics and diagnostics are stored in `cedar_calls.jsonl`.
 
+### 5. Inspect Confusion Matrix
+```bash
+uv run python src/experiments/cedar_research/evaluate_confusion_matrix.py \
+    --sim-dir data/simulations/airline_results_cedar \
+    --output-json data/simulations/airline_results_cedar/cedar_metrics.json
+```
 
 ## $\tau^2$-Cedar File Structure
 
@@ -89,20 +102,25 @@ This fork adds the following authorization, policy, and telemetry components to 
 
 ```text
 cedar/
-  policies/<domain>/       # Cedar policies (.cedar)
-  schemas/<domain>/        # Cedar schemas (.cedarschema)
+  policies/<domain>/                # Cedar policies (.cedar)
+  schemas/<domain>/                 # Cedar schemas (.cedarschema)
 data/simulations/<id>/
-  cedar_calls.jsonl        # Per-tool authorization logs 
-  cedar_summary.json       # Aggregated authorization data
-src/tau2/
-  environment/
-    authorizer.py          # Base Cedar authorizer
-    cedar_logger.py        # Cedar telemetry layer (cedar diagnostics)
-  domains/<domain>/
-    authorizer.py          # Domain-specific authorizers (for live entity extraction)
+  cedar_calls.jsonl                 # Per-tool authorization logs 
+  cedar_summary.json                # Aggregated authorization data
+src/
+  tau2/
+    environment/
+      authorizer.py                 # Base Cedar authorizer
+      cedar_logger.py               # Cedar telemetry layer (cedar diagnostics)
+    domains/<domain>/
+      authorizer.py                 # Domain-specific authorizers (for live entity extraction)
+  experiments/
+    cedar_research/
+      evaluate_confusion_matrix.py  # Cedar confusion matrix evaluation
+
 tests/
-  test_authorizer/         # Offline tests for policy enforcement & entity extraction 
-  test_logger/             # Offline tests for Cedar telemetry & summaries
+  test_authorizer/                  # Offline tests for policy enforcement & entity extraction 
+  test_logger/                      # Offline tests for Cedar telemetry & summaries
 ```
 
 ---

@@ -336,7 +336,7 @@ def _derive_read_log_allowlist(task: Task) -> set:
     return allowlist
 
 
-def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
+def _build_env_kwargs(config: RunConfig, task: Task | None) -> dict:
     """Build env_kwargs from a RunConfig for the environment constructor.
 
     Extracts retrieval-related config (banking_knowledge domain) and includes
@@ -348,7 +348,7 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     env_kwargs["save_dir"] = run_name
     
     if task is not None and hasattr(task, "id"):
-        env_kwargs["task_id"] = str(task.id)
+        env_kwargs["task_id"] = str(task.id) 
         
     # Cedar policy flag extraction
     cedar_policy = getattr(config, "cedar_policy", None)
