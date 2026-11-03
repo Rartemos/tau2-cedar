@@ -1576,7 +1576,7 @@ class Results(BaseModel):
         path = Path(path)
         if format == "json":
             path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(self.model_dump_json(indent=2))
             return
 
@@ -1586,12 +1586,12 @@ class Results(BaseModel):
 
         self.simulation_index = self._build_simulation_index()
         meta = self.model_dump(mode="json", exclude={"simulations"})
-        with open(meta_path, "w") as f:
+        with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
 
         for sim in self.simulations:
             sim_path = sims_dir / f"{sim.id}.json"
-            with open(sim_path, "w") as f:
+            with open(sim_path, "w", encoding="utf-8") as f:
                 f.write(sim.model_dump_json(indent=2))
 
     def save_metadata(self, path: Path) -> None:
@@ -1619,7 +1619,7 @@ class Results(BaseModel):
                 ]
 
         meta = self.model_dump(mode="json", exclude={"simulations"})
-        with open(meta_path, "w") as f:
+        with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
 
     # ---- Streaming / lightweight access ----

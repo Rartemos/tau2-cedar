@@ -1,4 +1,3 @@
-
 entity Agent {
     cannot_handle: Bool,
 };

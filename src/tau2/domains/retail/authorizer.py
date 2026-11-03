@@ -172,17 +172,36 @@ class RetailCedarAuthorizer(CedarAuthorizer):
         arguments: dict[str, Any],
     ) -> str:
         """Determines the Cedar Resource identifier for the retail domain.
-        
+
+        Authentication tools (find_user_id_by_email, find_user_id_by_name_zip)
+        receive no user_id argument — the lookup itself is the auth mechanism.
+        We map them to User::"new_context" so the permit fires correctly.
+
+        transfer_to_human_agents is mapped to System::"transfer" because
+        there is no meaningful resource entity for escalation and System is
+        always in the schema.
+
         Args:
             tool_name: The name of the tool call.
             arguments: The sanitized tool parameters.
-        
+
         Returns:
             The formatted Cedar Resource ID string.
         """
+        # Authentication tools: the base class derives Email:: or Zip:: from the
+        # tool name suffix — we need User:: so the permit applies.
+        if tool_name in (
+            "find_user_id_by_email",
+            "find_user_id_by_name_zip",
+            "authenticate_user_identity",
+        ):
+            user_id: str | None = arguments.get("user_id")
+            if user_id:
+                return f'User::"{user_id}"'
+            return 'User::"new_context"'
+
+        # Human escalation: no meaningful entity; System is always in the schema.
         if tool_name == "transfer_to_human_agents":
-            order_id: str | None = arguments.get("order_id")
-            if order_id:
-                return f'Order::"{order_id}"'
-            return 'RetailContext::"transfer"'
+            return 'System::"transfer"'
+
         return super()._determine_resource(tool_name, arguments)

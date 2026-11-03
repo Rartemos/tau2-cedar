@@ -1,5 +1,7 @@
 import argparse
 import json
+import sys
+from loguru import logger
 
 from pathlib import Path
 from typing import Any
@@ -9,6 +11,9 @@ from tau2.data_model.tasks import Task
 from tau2.environment.environment import Environment
 from tau2.registry import registry
 from tau2.run import get_tasks
+
+logger.remove()
+logger.add(sys.stderr, level="ERROR")
 
 
 def load_simulation_data(sim_dir: Path) -> tuple[Results | None, list[dict]]:
@@ -275,10 +280,12 @@ def main():
         help="Optional path to save the output JSON metrics file.",
     )
     args = parser.parse_args()
+    output_json = args.output_json or (args.sim_dir / "confusion_matrix.json")
+    
     evaluate_confusion_matrix(
         sim_dir=args.sim_dir,
         domain=args.domain,
-        output_json=args.output_json,
+        output_json=output_json,
     )
 
 if __name__ == "__main__":

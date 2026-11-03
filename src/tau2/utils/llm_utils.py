@@ -432,6 +432,15 @@ def generate(
         "The response should be an assistant message"
     )
     content = response_choice.message.content
+    
+    # Filter out internal LLM thoughts
+    if content and "</think>" in content:
+        stripped_content = content.split("</think>")[-1].strip()
+        if stripped_content:
+            content = stripped_content
+        elif response_choice.message.tool_calls:
+            content = None
+    
     raw_tool_calls = response_choice.message.tool_calls or []
     tool_calls = [
         ToolCall(

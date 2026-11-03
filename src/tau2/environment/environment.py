@@ -86,8 +86,11 @@ class Environment:
             policy_path=cedar_policy,
         )
         
-        sim_dir: Path = DEFAULT_SIMULATIONS_DIR / (save_dir or "default_simulation")
-        self.cedar_logger: CedarLogger = CedarLogger(sim_dir / "cedar_calls.jsonl")
+        if save_dir:
+            sim_dir: Path = DEFAULT_SIMULATIONS_DIR / save_dir
+            self.cedar_logger: Optional[CedarLogger] = CedarLogger(sim_dir / "cedar_calls.jsonl")
+        else:
+            self.cedar_logger = None
         
         if self.solo_mode:
             self.validate_solo_mode()
@@ -200,17 +203,18 @@ class Environment:
             logger.warning(
                 f"Cedar denied '{tool_name}' for requestor '{requestor}': {e.reason}"
             )
-            self.cedar_logger.record_deny(
-                task_id=active_task_id,
-                tool_name=tool_name,
-                requestor=requestor,
-                feedback=e.reason,
-                arguments=kwargs,
-                cedar_overhead_ms=e.cedar_overhead_ms,
-                cedar_policy_ids=e.cedar_policy_ids,
-                cedar_eval_errors=e.cedar_eval_errors,
-                cedar_request=e.cedar_request,
-            )
+            if self.cedar_logger is not None:
+                self.cedar_logger.record_deny(
+                    task_id=active_task_id,
+                    tool_name=tool_name,
+                    requestor=requestor,
+                    feedback=e.reason,
+                    arguments=kwargs,
+                    cedar_overhead_ms=e.cedar_overhead_ms,
+                    cedar_policy_ids=e.cedar_policy_ids,
+                    cedar_eval_errors=e.cedar_eval_errors,
+                    cedar_request=e.cedar_request,
+                )
             return {
                 "decision": "deny",
                 "tool": e.tool_name,
@@ -227,29 +231,31 @@ class Environment:
         
         try:
             result = toolkit.use_tool(tool_name=tool_name, **kwargs)
-            self.cedar_logger.record_allow(
-                task_id=active_task_id,
-                tool_name=tool_name,
-                requestor=requestor,
-                arguments=kwargs,
-                cedar_overhead_ms=cedar_overhead_ms,
-                cedar_policy_ids=cedar_policy_ids,
-                cedar_eval_errors=cedar_eval_errors,
-                cedar_request=cedar_request,
-            )
+            if self.cedar_logger is not None:
+                self.cedar_logger.record_allow(
+                    task_id=active_task_id,
+                    tool_name=tool_name,
+                    requestor=requestor,
+                    arguments=kwargs,
+                    cedar_overhead_ms=cedar_overhead_ms,
+                    cedar_policy_ids=cedar_policy_ids,
+                    cedar_eval_errors=cedar_eval_errors,
+                    cedar_request=cedar_request,
+                )
             return result
         except Exception as e:
-            self.cedar_logger.record_error(
-                task_id=active_task_id,
-                tool_name=tool_name,
-                requestor=requestor,
-                reason=e,
-                arguments=kwargs,
-                cedar_overhead_ms=cedar_overhead_ms,
-                cedar_policy_ids=cedar_policy_ids,
-                cedar_eval_errors=cedar_eval_errors,
-                cedar_request=cedar_request,
-            )
+            if self.cedar_logger is not None:
+                self.cedar_logger.record_error(
+                    task_id=active_task_id,
+                    tool_name=tool_name,
+                    requestor=requestor,
+                    reason=e,
+                    arguments=kwargs,
+                    cedar_overhead_ms=cedar_overhead_ms,
+                    cedar_policy_ids=cedar_policy_ids,
+                    cedar_eval_errors=cedar_eval_errors,
+                    cedar_request=cedar_request,
+                )
             raise
         
     def use_tool(

@@ -1,120 +1,34 @@
-entity Agent;
+entity Agent {
+    cannot_handle: Bool,
+};
 
 entity User {
     email: String,
-    name: String,
-    zip_code: String,
-    default_address: Address,
-    unique_user_id: String,
-    payment_methods: Set<PaymentMethod>,
-};
-
-entity Conversation {
-    authenticated_user?: User,
-    pending_action_details?: String,
-    explicit_user_confirmation?: Bool,
-    items_to_change?: Set<VariantItem>,
-    tool_call_in_progress: Bool,
-    selected_payment_method?: PaymentMethod,
-    confirmed_order_id?: String,
-    items_to_return?: Set<VariantItem>,
-    exchange_line_items?: Set<ExchangeLineItem>,
-    all_exchange_items_provided_confirmed?: Bool,
-};
-
-entity Address;
-
-entity OrderStatus enum ["pending", "delivered"];
-
-entity Product {
-    unique_product_id: String,
-    name: String,
-    variant_items: Set<VariantItem>,
-};
-
-entity PaymentMethod {
-    method_type: PaymentMethodType,
-    balance?: decimal,
-    balance_cents?: Long,
-};
-
-entity ProductItemOption {
-    option_value: String,
+    orders_count: Long,
+    payment_methods_count: Long,
 };
 
 entity Order {
-    user: User,
-    status: OrderStatus,
-    products: Set<Product>,
-    shipping_address: Address,
-    payment_method: PaymentMethod,
-    product_item_options: Set<ProductItemOption>,
-    modify_tool_called: Bool,
-    exchange_tool_called: Bool,
-    total: decimal,
-    total_cents: Long,
-    variant_items: Set<VariantItem>,
-    unique_order_id: String,
-    fulfillments_info: Set<Fulfillment>,
-    payment_history: Set<String>,
-    cancellation_reason?: CancellationReason,
-    exchanged_variant_items?: Set<VariantItem>,
-    exchange_price_difference?: decimal,
-    item_modification_price_difference?: Long,
+    status: String,
+    is_pending: Bool,
+    is_delivered: Bool,
+    user_id: String,
+    items_count: Long,
+    payment_history_count: Long,
+    original_payment_method_id: String,
+    is_original_payment: Bool,
+    is_same_as_current_payment: Bool,
+    is_gift_card: Bool,
+    gift_card_balance: Long,
+    items_exist_in_order: Bool,
+    item_count_matches: Bool,
+    has_been_modified_or_cancelled: Bool,
+    cancellation_reason: String,
 };
 
-entity PaymentMethodType enum ["gift card", "paypal account", "credit card"];
+entity Product {};
 
-entity VariantItem {
-    product: Product,
-    options: Set<ProductItemOption>,
-    is_available: Bool,
-    unique_item_id: String,
-    price: decimal,
-};
-
-entity Fulfillment {
-    tracking_id: String,
-    item_ids: Set<String>,
-};
-
-entity CancellationReason enum ["no longer needed", "ordered by mistake"];
-
-entity ExchangeLineItem {
-    original_item: VariantItem,
-    replacement_item: VariantItem,
-};
-
-// =============================================================================
-// TAU-BENCH RETAIL TOOLS ACTIONS
-// =============================================================================
-
-entity System;
-
-action get_order_details appliesTo {
-    principal: [Agent],
-    resource: [Order],
-};
-
-action get_user_details appliesTo {
-    principal: [Agent],
-    resource: [User],
-};
-
-action get_product_details appliesTo {
-    principal: [Agent],
-    resource: [Product],
-};
-
-action get_item_details appliesTo {
-    principal: [Agent],
-    resource: [VariantItem],
-};
-
-action list_all_product_types appliesTo {
-    principal: [Agent],
-    resource: [Product, System],
-};
+entity System {};
 
 action find_user_id_by_email appliesTo {
     principal: [Agent],
@@ -126,21 +40,87 @@ action find_user_id_by_name_zip appliesTo {
     resource: [User],
 };
 
+action authenticate_user_identity appliesTo {
+    principal: [Agent],
+    resource: [User],
+};
+
+action get_order_details appliesTo {
+    principal: [Agent],
+    resource: [Order],
+};
+
+action provide_order_information appliesTo {
+    principal: [Agent],
+    resource: [Order],
+};
+
+action get_user_details appliesTo {
+    principal: [Agent],
+    resource: [User],
+};
+
+action provide_profile_information appliesTo {
+    principal: [Agent],
+    resource: [User],
+};
+
+action get_product_details appliesTo {
+    principal: [Agent],
+    resource: [Product, System],
+};
+
+action list_all_product_types appliesTo {
+    principal: [Agent],
+    resource: [Product, System],
+};
+
+action provide_product_information appliesTo {
+    principal: [Agent],
+    resource: [Product, System],
+};
+
 action calculate appliesTo {
     principal: [Agent],
     resource: [Product, System],
 };
 
+action transfer_to_human_agents appliesTo {
+    principal: [Agent],
+    resource: [System],
+};
+
+action modify_default_user_address appliesTo {
+    principal: [Agent],
+    resource: [User],
+};
+
+action modify_user_address appliesTo {
+    principal: [Agent],
+    resource: [User],
+};
+
+action cancel_order appliesTo {
+    principal: [Agent],
+    resource: [Order],
+};
+
 action cancel_pending_order appliesTo {
     principal: [Agent],
     resource: [Order],
-    context: {
-        reason?: String,
-        cancellation_reason?: CancellationReason,
-    },
+};
+
+action modify_order_shipping_address appliesTo {
+    principal: [Agent],
+    resource: [Order],
 };
 
 action modify_pending_order_address appliesTo {
+    principal: [Agent],
+    resource: [Order],
+};
+
+action modify_order_payment_method appliesTo {
     principal: [Agent],
     resource: [Order],
 };
@@ -150,14 +130,19 @@ action modify_pending_order_payment appliesTo {
     resource: [Order],
 };
 
+action modify_order_product_item_options appliesTo {
+    principal: [Agent],
+    resource: [Order],
+};
+
 action modify_pending_order_items appliesTo {
     principal: [Agent],
     resource: [Order],
 };
 
-action modify_user_address appliesTo {
+action return_order appliesTo {
     principal: [Agent],
-    resource: [User],
+    resource: [Order],
 };
 
 action return_delivered_order_items appliesTo {
@@ -165,130 +150,12 @@ action return_delivered_order_items appliesTo {
     resource: [Order],
 };
 
-action exchange_delivered_order_items appliesTo {
-    principal: [Agent],
-    resource: [Order],
-};
-
-// =============================================================================
-// AUTOCEDAR ABSTRACT ACTIONS
-// =============================================================================
-
-action authenticate_user_identity appliesTo {
-    principal: [Agent],
-    resource: [User],
-    context: {
-        conversation: Conversation,
-        supplied_email?: String,
-        supplied_name?: String,
-        supplied_zip_code?: String,
-        supplied_user_id?: String,
-    },
-};
-
-action provide_profile_information appliesTo {
-    principal: [Agent],
-    resource: [User],
-    context: {
-        conversation: Conversation,
-    },
-};
-
-action provide_order_information appliesTo {
-    principal: [Agent],
-    resource: [Order],
-    context: {
-        conversation: Conversation,
-    },
-};
-
-action provide_product_information appliesTo {
-    principal: [Agent],
-    resource: [Product],
-    context: {
-        conversation: Conversation,
-        order: Order,
-    },
-};
-
-action modify_default_user_address appliesTo {
-    principal: [Agent],
-    resource: [User],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-    },
-};
-
-action cancel_order appliesTo {
-    principal: [Agent],
-    resource: [Order],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-        cancellation_reason: CancellationReason,
-    },
-};
-
-action modify_order_shipping_address appliesTo {
-    principal: [Agent],
-    resource: [Order],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-    },
-};
-
-action modify_order_payment_method appliesTo {
-    principal: [Agent],
-    resource: [Order],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-    },
-};
-
-action modify_order_product_item_options appliesTo {
-    principal: [Agent],
-    resource: [Order],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-        original_item: VariantItem,
-        replacement_item: VariantItem,
-    },
-};
-
-action return_order appliesTo {
-    principal: [Agent],
-    resource: [Order],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-    },
-};
-
 action exchange_order appliesTo {
     principal: [Agent],
     resource: [Order],
-    context: {
-        conversation: Conversation,
-        action_details_listed: Bool,
-        explicit_user_confirmation: Bool,
-        exchange_line_item: ExchangeLineItem,
-    },
 };
 
-action transfer_to_human_agents appliesTo {
+action exchange_delivered_order_items appliesTo {
     principal: [Agent],
-    resource: [Conversation],
-    context: {
-        request_can_be_handled_in_scope: Bool,
-    },
+    resource: [Order],
 };
