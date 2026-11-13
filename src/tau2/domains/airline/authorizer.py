@@ -2,16 +2,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from tau2.domains.airline.data_model import FlightDB, Reservation, Flight, FlightDateStatus
+from tau2.domains.airline.data_model import Flight, FlightDB, FlightDateStatus, Reservation
 from tau2.environment.authorizer import CedarAuthorizer
 
 class AirlineCedarAuthorizer(CedarAuthorizer):
-    """Airline domain Cedar authorizer.
-    
-    Extracts live entities from FlightDB to provide attributes
-    (such as cabin, insurance status, cancellation reason, etc.)
-    required by airline Cedar policies.
-    """
+    """Airline domain Cedar authorizer."""
     
     def __init__(
         self,
@@ -30,9 +25,9 @@ class AirlineCedarAuthorizer(CedarAuthorizer):
         """
         super().__init__(
             domain_name="airline",
+            db=db,
             policy_path=policy_path,
             schema_path=schema_path,
-            db=db,
             **kwargs,
         )
     
@@ -48,7 +43,7 @@ class AirlineCedarAuthorizer(CedarAuthorizer):
             arguments: The raw tool parameters.
             
         Returns:
-            The entity slice formatted for Cedar evaluation, including base entities.
+            A list of Cedar entity dictionaries.
         """
         entities: list[dict[str, Any]] = [
             entity for entity in super().build_entities(tool_name, arguments)
@@ -134,7 +129,7 @@ class AirlineCedarAuthorizer(CedarAuthorizer):
         tool_name: str,
         arguments: dict[str, Any],
     ) -> str:
-        """Determines the Cedar Resource identifier for the airline domain.
+        """Derive the target Cedar Resource identifier for the active tool.
         
         Args:
             tool_name: The name of the tool call.

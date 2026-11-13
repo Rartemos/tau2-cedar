@@ -123,7 +123,7 @@ def load_file(path: str | Path, **kwargs: Any) -> dict[str, Any]:
         with open(path, "r") as fp:
             data = toml.load(fp, **kwargs)
     elif path.suffix == ".txt" or path.suffix == ".md":
-        encoding = kwargs.pop("encoding", None)
+        encoding = kwargs.pop("encoding", "utf-8")
         if len(kwargs) > 0:
             raise ValueError(f"Unsupported keyword arguments: {kwargs}")
         with open(path, "r", encoding=encoding) as fp:

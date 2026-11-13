@@ -1,362 +1,210 @@
-permit (
-    principal is TelecomAgent,
-    action == Action::"provideTechnicalSupport",
-    resource is SupportRequest
-) when {
-    resource.withinActionScope &&
-    resource.customerIdentified
-};
+// ==============================================================================
+// AGENT POLICIES (TelecomTools)
+// ==============================================================================
 
+// Customer & Account Lookups (Read Operations)
 permit (
-    principal is TelecomAgent,
-    action == Action::"sendPaymentRequest",
-    resource is Bill
-) when {
-    context.request.withinActionScope &&
-    resource.isOverdue
-};
+    principal is Agent,
+    action in [
+        Action::"get_customer_by_phone",
+        Action::"get_customer_by_id",
+        Action::"get_customer_by_name",
+        Action::"get_bills_for_customer"
+    ],
+    resource is Customer
+);
 
+// Generic Entity Details Lookup (C/L/B/P/D)
 permit (
-    principal is TelecomAgent,
-    action == Action::"suspendLine",
+    principal is Agent,
+    action == Action::"get_details_by_id",
+    resource
+);
+
+// Line Usage Lookup
+permit (
+    principal is Agent,
+    action == Action::"get_data_usage",
+    resource is Line
+);
+
+// Plan Lookup
+permit (
+    principal is Agent,
+    action == Action::"get_available_plan_ids",
+    resource
+);
+
+// Transfer to Human Agents
+permit (
+    principal is Agent,
+    action == Action::"transfer_to_human_agents",
+    resource is System
+);
+
+// Roaming Management
+permit (
+    principal is Agent,
+    action in [
+        Action::"enable_roaming",
+        Action::"disable_roaming"
+    ],
+    resource is Line
+);
+
+// Line Suspension: Line must be ACTIVE to suspend
+permit (
+    principal is Agent,
+    action in [
+        Action::"suspend_line",
+        Action::"suspend_line_for_overdue_bill"
+    ],
     resource is Line
 ) when {
-    context.request.withinActionScope &&
-    resource.status == LineStatus::"Active"
+    resource.status == "Active"
 };
 
-permit (
-    principal is TelecomAgent,
-    action == Action::"providePlanOptions",
-    resource is SupportRequest
+forbid (
+    principal is Agent,
+    action in [
+        Action::"suspend_line",
+        Action::"suspend_line_for_overdue_bill"
+    ],
+    resource is Line
 ) when {
-    resource.withinActionScope
+    resource.status != "Active"
 };
 
+// Resume Line:
+// - Line must be currently SUSPENDED
+// - Line contract must NOT have ended
 permit (
-    principal is TelecomAgent,
-    action == Action::"transferToHumanAgents",
-    resource is SupportRequest
+    principal is Agent,
+    action == Action::"resume_line",
+    resource is Line
 ) when {
-    !resource.withinActionScope &&
-    resource.resolutionOptionsExhausted &&
-    !(resource.activeToolCallCount > 0) &&
-    !resource.responseInProgress
+    resource.status == "Suspended"
 };
 
-permit (
-    principal is TelecomAgent,
-    action == Action::"respondToUser",
-    resource is SupportRequest
+forbid (
+    principal is Agent,
+    action == Action::"resume_line",
+    resource is Line
 ) when {
-    context.message == "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT." &&
-    resource.humanTransferCompleted &&
-    context.usesOnlyUserOrToolInformation &&
-    !context.containsSubjectiveRecommendationsOrComments &&
-    !(resource.activeToolCallCount > 0)
+    resource.status != "Suspended"
 };
 
-permit (
-    principal is TelecomAgent,
-    action == Action::"denyRequest",
-    resource is SupportRequest
+forbid (
+    principal is Agent,
+    action == Action::"resume_line",
+    resource is Line
 ) when {
-    context.requestViolatesPolicy
+    resource.contract_ended == true
 };
 
+// Data Refueling:
+// - Line must be ACTIVE
+// - Requested refueling must be > 0.00 and <= 2.00 GB
 permit (
-    principal is TelecomAgent,
-    action == Action::"checkBillStatus",
+    principal is Agent,
+    action == Action::"refuel_data",
+    resource is Line
+) when {
+    resource.status == "Active" &&
+    resource.requested_refuel_gb.greaterThan(decimal("0.00")) &&
+    resource.requested_refuel_gb.lessThanOrEqual(decimal("2.00"))
+};
+
+forbid (
+    principal is Agent,
+    action == Action::"refuel_data",
+    resource is Line
+) when {
+    resource.status != "Active" ||
+    resource.requested_refuel_gb.lessThanOrEqual(decimal("0.00")) ||
+    resource.requested_refuel_gb.greaterThan(decimal("2.00"))
+};
+
+// Send Payment Request:
+// - Bill must be OVERDUE
+permit (
+    principal is Agent,
+    action == Action::"send_payment_request",
     resource is Bill
+) when {
+    resource.is_overdue == true
+};
+
+forbid (
+    principal is Agent,
+    action == Action::"send_payment_request",
+    resource is Bill
+) when {
+    resource.is_overdue == false
+};
+
+// ==============================================================================
+// USER POLICIES (TelecomUserTools)
+// ==============================================================================
+
+// Surroundings / Diagnostic Actions
+permit (
+    principal is User,
+    action in [
+        Action::"check_status_bar",
+        Action::"check_network_status",
+        Action::"check_network_mode_preference",
+        Action::"check_data_restriction_status",
+        Action::"check_apn_settings",
+        Action::"check_wifi_status",
+        Action::"check_wifi_calling_status",
+        Action::"check_vpn_status",
+        Action::"check_sim_status",
+        Action::"check_installed_apps",
+        Action::"run_speed_test"
+    ],
+    resource is Surroundings
 );
 
+// App Diagnostic & Permission Actions
 permit (
-    principal is TelecomAgent,
-    action == Action::"checkBillAmountDue",
-    resource is Bill
+    principal is User,
+    action in [
+        Action::"check_app_status",
+        Action::"check_app_permissions",
+        Action::"grant_app_permission",
+        Action::"can_send_mms"
+    ],
+    resource is App
 );
 
+// Device Control Actions
 permit (
-    principal is TelecomAgent,
-    action == Action::"makePayment",
+    principal is User,
+    action in [
+        Action::"toggle_data",
+        Action::"toggle_roaming",
+        Action::"toggle_wifi",
+        Action::"toggle_airplane_mode",
+        Action::"toggle_data_saver_mode",
+        Action::"toggle_wifi_calling",
+        Action::"set_network_mode_preference",
+        Action::"connect_vpn",
+        Action::"disconnect_vpn",
+        Action::"set_apn_settings",
+        Action::"reset_apn_settings",
+        Action::"reseat_sim_card",
+        Action::"reboot_device"
+    ],
+    resource is Device
+);
+
+// User Payment Actions
+permit (
+    principal is User,
+    action in [
+        Action::"check_payment_request",
+        Action::"make_payment"
+    ],
     resource is PaymentRequest
-) when {
-    resource.accepted &&
-    resource.bill.status == BillStatus::"Awaiting Payment"
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"resumeLine",
-    resource is Line
-) when {
-    resource.status == LineStatus::"Suspended"
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"refuelData",
-    resource is Line
-) when {
-    resource.status == LineStatus::"Active" &&
-    context.amountGB.greaterThan(decimal("0.0")) &&
-    context.amountGB.lessThanOrEqual(decimal("2.0")) &&
-    context.plan.planId == resource.planId &&
-    context.cumulativeRefuelingWithinLimit &&
-    context.billingMatchesLinePlanPrice
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"changePlan",
-    resource is Line
-) when {
-    context.supportRequest has providedPhoneNumber &&
-    context.supportRequest.providedPhoneNumber == resource.phoneNumber &&
-    context.supportRequest has selectedPlan &&
-    context.supportRequest.selectedPlan.planId != resource.planId &&
-    context.supportRequest has calculatedPlanPrice
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"calculatePlanPrice",
-    resource is Plan
-) when {
-    context.supportRequest has providedPhoneNumber &&
-    context.line.phoneNumber == context.supportRequest.providedPhoneNumber &&
-    context.supportRequest has selectedPlan &&
-    context.supportRequest.selectedPlan == resource &&
-    resource.planId != context.line.planId
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"checkRoamingStatus",
-    resource is Line
-) when {
-    context.outsideHomeNetwork
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkStatusBar",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkNetworkStatus",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkWifiCallingStatus",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkAppPermissions",
-    resource is App
-) when {
-    resource.device.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"runSpeedTest",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"canSendMms",
-    resource is App
-) when {
-    resource.device.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"setNetworkModePreference",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"toggleAirplaneMode",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"toggleData",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"reseatSimCard",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"toggleRoaming",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"toggleDataSaverMode",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"toggleWifi",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"toggleWifiCalling",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"disconnectVpn",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"grantAppPermission",
-    resource is App
-) when {
-    resource.device.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"rebootDevice",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkSimStatus",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkApnSettings",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"resetApnSettings",
-    resource is Device
-) when {
-    resource.customer == principal &&
-    !resource.apnSettingsCorrect
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"verifyServiceRestored",
-    resource is Line
-) when {
-    resource.status == LineStatus::"Suspended"
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"checkLineStatus",
-    resource is Line
 );
-
-permit (
-    principal is Customer,
-    action == Action::"checkDataRestrictionStatus",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkVpnStatus",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"connectVpn",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is Customer,
-    action == Action::"checkNetworkModePreference",
-    resource is Device
-) when {
-    resource.customer == principal
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"lookupCustomerByPhoneNumber",
-    resource is Customer
-) when {
-    context.phoneNumber == resource.phoneNumber
-};
-
-permit (
-    principal is TelecomAgent,
-    action == Action::"lookupCustomerByCustomerId",
-    resource is Customer
-) when {
-    context.customerId == resource.customerId
-};

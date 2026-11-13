@@ -22,6 +22,9 @@ from tau2.domains.telecom.utils import (
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
+from tau2.domains.telecom.authorizer import TelecomCedarAuthorizer
+from tau2.environment.authorizer import CedarAuthorizer
+
 
 class TelecomEnvironment(Environment):
     tools: TelecomTools
@@ -42,6 +45,11 @@ class TelecomEnvironment(Environment):
         Sync the tools with the user's surroundings.
         If the line is roaming enabled, then the user is allowed to roam.
         """
+        if hasattr(self, "cedar_authorizer") and self.cedar_authorizer is not None:
+            self.cedar_authorizer.db = self.tools.db
+            if hasattr(self.cedar_authorizer, "user_db"):
+                self.cedar_authorizer.user_db = self.user_tools.db
+        
         if self.user_tools.db.surroundings.phone_number is None:
             return
         phone_number = self.user_tools.db.surroundings.phone_number
@@ -99,6 +107,8 @@ def get_environment(
     user_db: Optional[TelecomUserDB] = None,
     solo_mode: bool = False,
     policy_type: str = "manual",  # "manual" or "workflow"
+    authorizer: Optional[CedarAuthorizer] = None,
+    cedar_policy: Optional[str] = None,
     **kwargs,
 ) -> TelecomEnvironment:
     if db is None:
@@ -137,11 +147,20 @@ def get_environment(
         domain_name = "telecom"
     else:
         domain_name = "telecom-workflow"
+        
+    if authorizer is None:
+        authorizer = TelecomCedarAuthorizer(
+            db=db,
+            user_db=user_db,
+            policy_path=cedar_policy,
+        )
+        
     env = TelecomEnvironment(
         domain_name=domain_name,
         policy=policy,
         tools=tools,
         user_tools=user_tools,
+        authorizer=authorizer,
         **kwargs,
     )
     if solo_mode:

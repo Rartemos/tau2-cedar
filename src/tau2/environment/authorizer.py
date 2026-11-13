@@ -188,7 +188,7 @@ class CedarAuthorizer:
             arguments: The raw tool parameters.
             
         Returns:
-            A list of Cedar entity dictionaries for evaluation.
+            A list of Cedar entity dictionaries.
         """
         return [
             {
@@ -293,7 +293,7 @@ class CedarAuthorizer:
         requestor: str,
         arguments: dict[str, Any],
     ) -> dict[str, Any]:
-        """Evaluate a tool call against the Cedar engine.
+        """Evaluate a tool call against Cedar.
         
         Builds the authorization request and entities, 
         evaluates against Cedar, and returns a decision.
@@ -304,7 +304,7 @@ class CedarAuthorizer:
             arguments: The raw tool parameters.
             
         Returns:
-            Evaluation metadata on a permitted tool call, containing ``cedar_overhead_ms``, 
+            Evaluation metadata containing ``cedar_overhead_ms``, 
             ``cedar_request``, ``cedar_policy_ids``, and ``cedar_eval_errors``.
 
         Raises:

@@ -1,495 +1,302 @@
-entity TelecomAgent;
+entity Agent {};
+
+entity User {};
 
 entity Customer {
-    customerId: String,
-    fullName: String,
-    dateOfBirth: datetime,
-    email: String,
-    phoneNumber: String,
-    address: { street: String, city: String, state: String, zipCode: String },
-    accountStatus: AccountStatus,
-    createdDate: datetime,
-    paymentMethods: Set<PaymentMethod>,
-    lines: Set<Line>,
-    bills: Set<Bill>,
-    lastExtensionDate?: datetime,
-    goodwillCreditUsageForYear: decimal,
+    account_status: String,
+    num_lines: Long,
+    num_bills: Long,
+    has_payment_method: Bool,
+    has_overdue_bill: Bool,
+    goodwill_credit_used_this_year: decimal,
 };
 
-entity SupportRequest {
-    customer: Customer,
-    withinActionScope: Bool,
-    resolutionOptionsExhausted: Bool,
-    activeToolCallCount: Long,
-    responseInProgress: Bool,
-    humanTransferCompleted: Bool,
-    requestedDataGB?: decimal,
-    refuelingPriceConfirmed?: Bool,
-    providedPhoneNumber?: String,
-    availablePlans?: Set<Plan>,
-    selectedPlan?: Plan,
-    calculatedPlanPrice?: decimal,
-    planPriceConfirmed: Bool,
-    customerIdentified: Bool,
+entity Line in [Customer] {
+    status: String,
+    roaming_enabled: Bool,
+    contract_ended: Bool,
+    data_used_gb: decimal,
+    data_refueling_gb: decimal,
+    plan_id: String,
+    requested_refuel_gb: decimal,
 };
 
-entity Bill {
-    isOverdue: Bool,
-    status: BillStatus,
-    billId: String,
-    customerId: String,
-    billingPeriodStartDate: datetime,
-    billingPeriodEndDate: datetime,
-    issueDate: datetime,
-    totalAmountDue: decimal,
-    dueDate: datetime,
-    lineItems: Set<String>,
+entity Bill in [Customer] {
+    status: String,
+    is_overdue: Bool,
+    total_due: decimal,
+    customer_id: String,
 };
-
-entity Line {
-    status: LineStatus,
-    lineId: String,
-    lastPlanChangeDate: String,
-    lastSimReplacementDate: String,
-    phoneNumber: String,
-    planId: String,
-    deviceId?: String,
-    dataUsage: decimal,
-    dataRefueling: decimal,
-    roamingStatus: String,
-    contractEndDate: datetime,
-    suspensionStartDate?: datetime,
-    hasService: Bool,
-    cycleEndDate: datetime,
-};
-
-entity AccountStatus enum ["Active", "Suspended", "Pending Verification", "Closed"];
-
-entity PaymentMethod {
-    methodType: PaymentMethodType,
-    accountNumberLast4: String,
-    expirationDate: String,
-};
-
-entity PaymentMethodType enum ["Credit Card", "Debit Card", "PayPal"];
-
-entity LineStatus enum ["Active", "Suspended", "Pending Activation", "Closed"];
-
-entity BillStatus enum ["Draft", "Issued", "Paid", "Overdue", "Awaiting Payment", "Disputed"];
 
 entity Plan {
-    planId: String,
-    name: String,
-    dataLimit: decimal,
-    monthlyPrice: decimal,
-    dataRefuelingPricePerGB: decimal,
+    data_limit_gb: decimal,
+    price_per_month: decimal,
+    data_refueling_price_per_gb: decimal,
 };
-
-entity DeviceType enum ["phone", "tablet", "router", "watch", "other"];
 
 entity Device {
-    deviceId: String,
-    deviceType: DeviceType,
-    model: String,
-    imeiNumber?: String,
-    esimCapability: Bool,
-    activationStatus: String,
-    activationDate: datetime,
-    lastEsimTransferDate: datetime,
-    customer: Customer,
-    airplaneModeEnabled: Bool,
-    cellularSignalStrength: String,
-    networkTechnology: String,
-    mobileDataEnabled: Bool,
-    dataSaverEnabled: Bool,
-    wifiEnabled: Bool,
-    wifiSsid?: String,
-    wifiSignalStrength?: String,
-    wifiCallingEnabled: Bool,
-    vpnActive: Bool,
-    vpnConnected: Bool,
-    vpnConnectionDetails?: String,
-    batteryLevel: Long,
-    dataRoamingEnabled: Bool,
-    networkModePreference: String,
-    simStatus: String,
-    backgroundDataRestricted: Bool,
-    apnName: String,
-    mmscUrl: String,
-    downloadSpeedQuality: String,
-    apnSettingsCorrect: Bool,
-    apnChangesPendingReboot: Bool,
-    isRoaming: Bool,
-    carrierSupportsMmsOverWifi: Bool,
-    canMakeCalls: Bool,
-    mobileDataWorksForOtherApps: Bool,
+    device_type?: String,
+    is_esim_capable?: Bool,
+    activated?: Bool,
+    airplane_mode?: Bool,
+    data_enabled?: Bool,
+    roaming_enabled?: Bool,
+    wifi_enabled?: Bool,
+    wifi_calling_enabled?: Bool,
+    vpn_connected?: Bool,
+    data_saver_mode?: Bool,
+    sim_card_missing?: Bool,
+    sim_card_status?: String,
 };
 
-entity PaymentRequest {
-    bill: Bill,
-    accepted: Bool,
+entity Surroundings {
+    line_active: Bool,
+    is_abroad: Bool,
+    roaming_allowed: Bool,
+    mobile_data_usage_exceeded: Bool,
+    has_payment_request: Bool,
+    payment_amount_due: decimal,
 };
 
 entity App {
-    device: Device,
-    name: String,
-    permissions: Set<String>,
-    backgroundDataRestricted: Bool,
-    canSendMms?: Bool,
+    installed: Bool,
+    has_sms: Bool,
+    has_storage: Bool,
+    has_phone: Bool,
+    has_network: Bool,
 };
 
-entity Address {
-    street: String,
-    city: String,
-    state: String,
-    zip_code: String,
+entity PaymentRequest {
+    bill_id: String,
+    amount_due: decimal,
+    paid: Bool,
 };
 
-entity LineItem {
-    description: String,
-    amount: decimal,
-    date: datetime,
-    item_type: String,
+entity System {};
+
+// Agent Actions
+action get_customer_by_phone appliesTo {
+    principal: [Agent],
+    resource: [Customer],
 };
 
-entity TelecomDB {
-    plans: Set<Plan>,
-    customers: Set<Customer>,
-    lines: Set<Line>,
-    bills: Set<Bill>,
-    devices: Set<Device>,
+action get_customer_by_id appliesTo {
+    principal: [Agent],
+    resource: [Customer],
 };
 
-action provideTechnicalSupport appliesTo {
-    principal: [TelecomAgent],
-    resource: [SupportRequest],
+action get_customer_by_name appliesTo {
+    principal: [Agent],
+    resource: [Customer],
 };
 
-action sendPaymentRequest appliesTo {
-    principal: [TelecomAgent],
-    resource: [Bill],
-    context: {
-        request: SupportRequest,
-    },
+action get_bills_for_customer appliesTo {
+    principal: [Agent],
+    resource: [Customer],
 };
 
-action suspendLine appliesTo {
-    principal: [TelecomAgent],
+action get_details_by_id appliesTo {
+    principal: [Agent],
+    resource: [Customer, Line, Bill, Plan, Device],
+};
+
+action get_data_usage appliesTo {
+    principal: [Agent],
     resource: [Line],
-    context: {
-        request: SupportRequest,
-        suspensionDurationWithinSixCalendarMonths: Bool,
-    },
 };
 
-action providePlanOptions appliesTo {
-    principal: [TelecomAgent],
-    resource: [SupportRequest],
+action get_available_plan_ids appliesTo {
+    principal: [Agent],
+    resource: [Customer, Line, Plan, System],
 };
 
-action transferToHumanAgents appliesTo {
-    principal: [TelecomAgent],
-    resource: [SupportRequest],
+action enable_roaming appliesTo {
+    principal: [Agent],
+    resource: [Line],
 };
 
-action respondToUser appliesTo {
-    principal: [TelecomAgent],
-    resource: [SupportRequest],
-    context: {
-        message: String,
-        usesOnlyUserOrToolInformation: Bool,
-        containsSubjectiveRecommendationsOrComments: Bool,
-    },
+action disable_roaming appliesTo {
+    principal: [Agent],
+    resource: [Line],
 };
 
-action denyRequest appliesTo {
-    principal: [TelecomAgent],
-    resource: [SupportRequest],
-    context: {
-        requestViolatesPolicy: Bool,
-    },
+action suspend_line appliesTo {
+    principal: [Agent],
+    resource: [Line],
 };
 
-action lookupCustomerByPhoneNumber appliesTo {
-    principal: [TelecomAgent],
-    resource: [Customer],
-    context: {
-        phoneNumber: String,
-    },
+action suspend_line_for_overdue_bill appliesTo {
+    principal: [Agent],
+    resource: [Line],
 };
 
-action lookupCustomerByCustomerId appliesTo {
-    principal: [TelecomAgent],
-    resource: [Customer],
-    context: {
-        customerId: String,
-    },
+action resume_line appliesTo {
+    principal: [Agent],
+    resource: [Line],
 };
 
-action lookupCustomerByNameAndDateOfBirth appliesTo {
-    principal: [TelecomAgent],
-    resource: [Customer],
-    context: {
-        fullName: String,
-        dateOfBirth: String,
-    },
+action refuel_data appliesTo {
+    principal: [Agent],
+    resource: [Line],
 };
 
-action checkBillStatus appliesTo {
-    principal: [TelecomAgent],
+action send_payment_request appliesTo {
+    principal: [Agent],
     resource: [Bill],
 };
 
-action checkBillAmountDue appliesTo {
-    principal: [TelecomAgent],
-    resource: [Bill],
+action transfer_to_human_agents appliesTo {
+    principal: [Agent],
+    resource: [System],
 };
 
-action checkPaymentRequest appliesTo {
-    principal: [Customer],
+// User Actions
+action check_status_bar appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_network_status appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_network_mode_preference appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_data_restriction_status appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_apn_settings appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_wifi_status appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_wifi_calling_status appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_vpn_status appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_sim_status appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_installed_apps appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action run_speed_test appliesTo {
+    principal: [User],
+    resource: [Surroundings],
+};
+
+action check_app_status appliesTo {
+    principal: [User],
+    resource: [App],
+};
+
+action check_app_permissions appliesTo {
+    principal: [User],
+    resource: [App],
+};
+
+action grant_app_permission appliesTo {
+    principal: [User],
+    resource: [App],
+};
+
+action can_send_mms appliesTo {
+    principal: [User],
+    resource: [App],
+};
+
+action toggle_data appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action toggle_roaming appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action toggle_wifi appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action toggle_airplane_mode appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action toggle_data_saver_mode appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action toggle_wifi_calling appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action set_network_mode_preference appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action connect_vpn appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action disconnect_vpn appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action set_apn_settings appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action reset_apn_settings appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action reseat_sim_card appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action reboot_device appliesTo {
+    principal: [User],
+    resource: [Device],
+};
+
+action check_payment_request appliesTo {
+    principal: [User],
     resource: [PaymentRequest],
 };
 
-action makePayment appliesTo {
-    principal: [TelecomAgent],
+action make_payment appliesTo {
+    principal: [User],
     resource: [PaymentRequest],
-};
-
-action resumeLine appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-};
-
-action verifyServiceRestored appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-};
-
-action refuelData appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-    context: {
-        amountGB: decimal,
-        plan: Plan,
-        cumulativeRefuelingWithinLimit: Bool,
-        billingMatchesLinePlanPrice: Bool,
-    },
-};
-
-action gatherAvailablePlans appliesTo {
-    principal: [TelecomAgent],
-    resource: [SupportRequest],
-};
-
-action calculatePlanPrice appliesTo {
-    principal: [TelecomAgent],
-    resource: [Plan],
-    context: {
-        supportRequest: SupportRequest,
-        line: Line,
-    },
-};
-
-action changePlan appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-    context: {
-        supportRequest: SupportRequest,
-    },
-};
-
-action checkRoamingStatus appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-    context: {
-        supportRequest: SupportRequest,
-        outsideHomeNetwork: Bool,
-    },
-};
-
-action enableRoaming appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-    context: {
-        supportRequest: SupportRequest,
-        outsideHomeNetwork: Bool,
-        chargeAmount: decimal,
-    },
-};
-
-action retrieveCustomerBills appliesTo {
-    principal: [TelecomAgent],
-    resource: [Customer],
-};
-
-action checkStatusBar appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action rebootDevice appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkNetworkStatus appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkNetworkModePreference appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkSimStatus appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkDataRestrictionStatus appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkApnSettings appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkWifiStatus appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkWifiCallingStatus appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkVpnStatus appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkInstalledApps appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action checkAppStatus appliesTo {
-    principal: [Customer],
-    resource: [App],
-};
-
-action checkAppPermissions appliesTo {
-    principal: [Customer],
-    resource: [App],
-};
-
-action runSpeedTest appliesTo {
-    principal: [Customer],
-    resource: [Device],
-};
-
-action canSendMms appliesTo {
-    principal: [Customer],
-    resource: [App],
-};
-
-action setNetworkModePreference appliesTo {
-    principal: [Customer],
-    resource: [Device],
-    context: {
-        networkModePreference: String,
-    },
-};
-
-action toggleAirplaneMode appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action reseatSimCard appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action toggleData appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action toggleRoaming appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action toggleDataSaverMode appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action setApnSettings appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action resetApnSettings appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action toggleWifi appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action toggleWifiCalling appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action connectVpn appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action disconnectVpn appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [Device],
-};
-
-action grantAppPermission appliesTo {
-    principal: [Customer, TelecomAgent],
-    resource: [App],
-    context: {
-        permission: String,
-    },
-};
-
-action checkLineStatus appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-};
-
-action getDetailsById appliesTo {
-    principal: [TelecomAgent],
-    resource: [Customer, Line, Device, Bill, Plan],
-};
-
-action getDataUsage appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-    context: {
-        customer: Customer,
-    },
-};
-
-action disableRoaming appliesTo {
-    principal: [TelecomAgent],
-    resource: [Line],
-    context: {
-        customer: Customer,
-    },
 };
