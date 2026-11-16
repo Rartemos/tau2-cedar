@@ -23,9 +23,10 @@ from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall, InitializationD
 from tau2.environment.db import DB
 from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolSignature, get_tool_signatures
-from tau2.environment.authorizer import CedarAuthorizer, CedarError
-from tau2.environment.cedar_logger import CedarLogger
 from tau2.utils.utils import DATA_DIR
+from tau2.environment.authorizer import CedarAuthorizer, CedarError, FeedbackMode
+from tau2.environment.cedar_logger import CedarLogger
+
 
 DEFAULT_SIMULATIONS_DIR: Path = DATA_DIR / "simulations"
 
@@ -85,6 +86,7 @@ class Environment:
             db=getattr(tools, "db", None) if tools is not None else None,
             policy_path=cedar_policy,
         )
+        self.cedar_authorizer.feedback_mode = FeedbackMode.MINIMAL
         
         if save_dir:
             sim_dir: Path = DEFAULT_SIMULATIONS_DIR / save_dir

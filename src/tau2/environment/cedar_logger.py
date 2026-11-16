@@ -4,9 +4,12 @@
 
 import json
 import statistics
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
+
+_WRITE_LOCK = threading.Lock()
 
 
 class CedarLogger:
@@ -61,8 +64,9 @@ class CedarLogger:
         Args:
             event: The event dictionary to append.
         """
-        with open(self.cedar_calls_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(event) + "\n")
+        with _WRITE_LOCK:
+            with open(self.cedar_calls_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(event) + "\n")
             
     def _record_stats(
         self,

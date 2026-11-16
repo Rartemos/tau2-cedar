@@ -350,7 +350,7 @@ def create_checkpoint_fns(
     # Monolithic JSON format
     def _save_json(simulation: SimulationRun):
         with lock:
-            with open(save_path, "r") as fp:
+            with open(save_path, "r", encoding="utf-8") as fp:
                 ckpt = json.load(fp)
             existing_keys = {
                 (sim.get("trial"), sim.get("task_id"), sim.get("seed"))
@@ -368,7 +368,7 @@ def create_checkpoint_fns(
                 suffix=".json", prefix=".results_", dir=save_path.parent
             )
             try:
-                with os.fdopen(fd, "w") as fp:
+                with os.fdopen(fd, "w", encoding="utf-8") as fp:
                     json.dump(ckpt, fp, indent=2)
                 os.replace(tmp_path, save_path)
             except Exception:
@@ -382,7 +382,7 @@ def create_checkpoint_fns(
     ):
         trial, task_id, seed = key
         with lock:
-            with open(save_path, "r") as fp:
+            with open(save_path, "r", encoding="utf-8") as fp:
                 ckpt = json.load(fp)
             ckpt["simulations"] = [
                 sim
@@ -398,7 +398,7 @@ def create_checkpoint_fns(
                 suffix=".json", prefix=".results_", dir=save_path.parent
             )
             try:
-                with os.fdopen(fd, "w") as fp:
+                with os.fdopen(fd, "w", encoding="utf-8") as fp:
                     json.dump(ckpt, fp, indent=2)
                 os.replace(tmp_path, save_path)
             except Exception:
