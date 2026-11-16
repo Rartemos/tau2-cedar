@@ -5,9 +5,9 @@ from tau2.environment.authorizer import CedarError
 from tau2.environment.environment import Environment
 
 @pytest.fixture(scope="module")
-def env() -> Environment:
+def env(tmp_path_factory) -> Environment:
     """Load airline environment with default FlightDB and AirlineCedarAuthorizer."""
-    return get_environment()
+    return get_environment(save_dir="test_airline")
 
 @pytest.fixture(scope="module")
 def authorizer(env: Environment):

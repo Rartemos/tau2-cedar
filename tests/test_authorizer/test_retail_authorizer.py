@@ -4,9 +4,9 @@ from tau2.environment.authorizer import CedarError
 from tau2.environment.environment import Environment
 
 @pytest.fixture(scope="module")
-def env() -> Environment:
+def env(tmp_path_factory) -> Environment:
     """Load retail environment with default RetailDB and RetailCedarAuthorizer."""
-    return get_environment()
+    return get_environment(save_dir="test_retail")
 
 @pytest.fixture(scope="module")
 def authorizer(env: Environment):

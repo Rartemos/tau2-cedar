@@ -5,6 +5,7 @@
 
 import json
 import time
+from enum import IntEnum
 
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,11 @@ import cedarpy
 
 from tau2.utils.utils import DEFAULT_POLICIES_DIR, DEFAULT_SCHEMA_DIR
 
+
+class FeedbackMode(IntEnum):
+    NONE = 0    # No feedback at all (empty string)
+    MINIMAL = 1 # Some feedback (mentions tool name that was blocked)
+    FULL = 2    # Specifies that policy blocked tool and that agent shouldn't retry
 
 class CedarError(Exception):
     """Raised when Cedar denies a tool call.
@@ -49,6 +55,7 @@ class CedarError(Exception):
         self.cedar_request = cedar_request
         super().__init__(reason)
 
+
 class CedarAuthorizer:
     """Cedar authorization boundary for Tau2 environment tool calls.
     
@@ -66,7 +73,7 @@ class CedarAuthorizer:
         feedback_mode: Whether structured feedback is sent to the agent when a tool call is denied.
     """
     
-    default_feedback_mode: bool = False # If the agent receives structured feedback
+    default_feedback_mode: int = FeedbackMode.NONE # The agent receives no feedback
     
     def __init__(
         self, 
@@ -74,7 +81,7 @@ class CedarAuthorizer:
         db: Any | None = None,
         policy_path: str | Path | None = None, 
         schema_path: str | Path | None = None,
-        feedback_mode: bool | None = None,
+        feedback_mode: FeedbackMode | int | None = None,
     ) -> None:
         """Initialize the authorizer.
         
@@ -85,8 +92,8 @@ class CedarAuthorizer:
                 defaults to the domain policy '<domain>.cedar' 
                 or 'permit_all' for mock domains. Fallback to 'forbid_all' if not found.
             schema_path: The Cedar schema file path, or None.
-            feedback_mode: Toggle structured Cedar feedback for agents. If None,
-                defaults to ``CedarAuthorizer.default_feedback_mode``.
+            feedback_mode: Set Cedar feedback for agents. If None,
+                defaults to no feedback.
         """
         self.domain_name = domain_name.strip().lower()
         self.db = db
@@ -109,7 +116,10 @@ class CedarAuthorizer:
         self.cedar_policies: str = self._load_policies()
         self.cedar_schema: str | None = self._load_schema()
         
-        self.feedback_mode: bool = self.default_feedback_mode if feedback_mode is None else feedback_mode
+        if feedback_mode is None:
+            self.feedback_mode: int = self.default_feedback_mode  
+        else:
+            self.feedback_mode = FeedbackMode(feedback_mode)
 
     def _load_policies(self, policy_path: str | Path | None = None) -> str:
         """Load the Cedar policy file.
@@ -330,14 +340,16 @@ class CedarAuthorizer:
 
         # Raise exception containing feedback and denial context if denied
         if cedar_result.decision == cedarpy.Decision.Deny:
-            if self.feedback_mode:
-                reason=(
+            if self.feedback_mode == FeedbackMode.FULL:
+                reason = (
                     f"The '{requestor}' is not authorized to use the '{tool_name}' tool. "
                     "This action is restricted by the active Cedar policy. Do not retry this tool. "
                     "Politely explain the restriction to the user."
                 )
-            else:
-                reason=(f"Action denied. The '{tool_name}' tool was blocked.")
+            elif self.feedback_mode == FeedbackMode.MINIMAL: 
+                reason = (f"Action denied. The '{tool_name}' tool was blocked.")
+            else: 
+                reason = "Action denied."
             
             raise CedarError(
                 tool_name=tool_name,
